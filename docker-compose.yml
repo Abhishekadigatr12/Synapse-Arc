@@ -1,0 +1,65 @@
+services:
+  redis:
+    image: redis:7
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: synapse
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/backend.Dockerfile
+    environment:
+      REDIS_URL: 'redis://redis:6379'
+      DATABASE_URL: 'postgresql+psycopg2://postgres:postgres@postgres:5432/synapse'
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - '8000:8000'
+
+  telemetry:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/backend.Dockerfile
+    command: python services/telemetry-service/main.py
+    environment:
+      BACKEND_URL: 'http://backend:8000'
+      NODES: '20'
+      INTERVAL: '1'
+    depends_on:
+      - backend
+
+  frontend:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/frontend.Dockerfile
+    ports:
+      - '3000:3000'
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
