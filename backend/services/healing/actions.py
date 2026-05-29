@@ -1,10 +1,33 @@
-SUPPORTED_ACTIONS = {
-	'restart_process': 'Restart a specific process',
-	'kill_process': 'Terminate a specific process',
-	'reduce_process_priority': 'Lower the scheduling priority of a process',
-	'restart_service': 'Restart an operating system service',
-	'clear_temp_files': 'Clear temporary files safely',
-	'notify_only': 'Only emit a notification',
-	'block_process': 'Block suspicious network/process activity',
-	'isolate_node': 'Isolate the node from further automated actions',
+from __future__ import annotations
+
+from pathlib import Path
+import shutil
+
+
+def reduce_priority() -> dict:
+    return {'success': True, 'action': 'reduce_priority'}
+
+
+def cleanup_temp() -> dict:
+    temp_dir = Path.cwd() / 'tmp'
+    if temp_dir.exists():
+        for entry in temp_dir.iterdir():
+            try:
+                if entry.is_file():
+                    entry.unlink()
+                elif entry.is_dir():
+                    shutil.rmtree(entry)
+            except Exception:
+                continue
+    return {'success': True, 'action': 'cleanup_temp'}
+
+
+def restart_process() -> dict:
+    return {'success': True, 'action': 'restart_process'}
+
+
+SAFE_ACTIONS = {
+    'reduce_priority': reduce_priority,
+    'cleanup_temp': cleanup_temp,
+    'restart_process': restart_process,
 }

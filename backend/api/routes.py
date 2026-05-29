@@ -13,7 +13,9 @@ from ..database.connection import get_engine
 from ..database.repository import recent_actions, recent_alerts, recent_anomalies, recent_predictions, recent_system_metrics
 from ..event_bus.publisher import publish
 from ..event_bus.redis_client import get_async_client
-from ..services.monitoring.collector import collect_snapshot
+from ..pipeline.processor import handle_metric_received
+from ..services.healing.executor import execute_action
+from ..services.monitoring.collector import collect_process_metrics, collect_system_metrics
 from ..services.monitoring.simulator import build_simulation_payload
 from ..services.monitoring.topology import build_topology
 
@@ -33,30 +35,108 @@ def _uptime_days() -> int:
     return max(0, int(delta.total_seconds() // 86400))
 
 
+@router.get('/status')
+async def get_status():
+    snapshot = collect_system_metrics()
+    return {
+        'status': 'running',
+        'node_id': snapshot['node_id'],
+        'boot_time': snapshot['boot_time'],
+        'timestamp': snapshot['timestamp'],
+        'collector': 'psutil',
+        'pipeline': 'active',
+    }
+
+
+@router.get('/metrics')
+async def get_metrics():
+    return collect_system_metrics()
+
+
+@router.get('/processes')
+async def get_processes():
+    return {'processes': collect_process_metrics()}
+
+
+@router.get('/anomalies')
+async def get_anomalies():
+    with SessionLocal() as session:
+        rows = recent_anomalies(session, limit=20)
+    return {
+        'anomalies': [
+            {
+                'id': row.id,
+                'host': row.host,
+                'anomaly_type': row.anomaly_type,
+                'score': row.score,
+                'severity': row.severity,
+                'details': row.details,
+                'ts': row.ts.isoformat() if row.ts else None,
+            }
+            for row in rows
+        ]
+    }
+
+
+@router.get('/predictions')
+async def get_predictions():
+    with SessionLocal() as session:
+        predictions = recent_predictions(session, limit=20)
+    return {
+        'predictions': [
+            {
+                'id': item.id,
+                'resource': item.resource,
+                'current': item.current,
+                'predicted': item.predicted,
+                'time_to_threshold': item.time_to_threshold,
+                'risk_score': item.risk_score,
+                'ts': item.ts.isoformat() if item.ts else None,
+            }
+            for item in predictions
+        ]
+    }
+
+
 @router.post('/metrics')
 async def post_metrics(request: Request):
     payload = await request.json()
     client = get_async_client(settings.REDIS_URL)
-    await publish(client, 'metric_received', json.dumps(payload))
+    try:
+        await publish(client, 'metric_received', json.dumps(payload))
+    except Exception:
+        pass
+    with SessionLocal() as session:
+        await handle_metric_received(None, session, payload)
     return {'status': 'ok', 'received': True}
 
 
-@router.get('/nodes')
-async def get_nodes():
-    snapshot = collect_snapshot()
-    topology = build_topology(snapshot, count=settings.CLUSTER_NODES)
-    return {'nodes': topology['nodes']}
+@router.post('/simulate/anomaly')
+async def simulate_anomaly(request: Request):
+    body = await request.json()
+    payload = build_simulation_payload(inject_anomaly=True)
+    snapshot = dict(payload['snapshot'])
+    snapshot.update(body)
+    snapshot['host'] = str(body.get('host', snapshot.get('host', 'host-machine')))
+    snapshot['node'] = snapshot['host']
+    with SessionLocal() as session:
+        await handle_metric_received(None, session, snapshot)
+    return {'status': 'queued', 'payload': snapshot}
 
 
-@router.get('/topology')
-async def get_topology():
-    snapshot = collect_snapshot()
-    return build_topology(snapshot, count=settings.CLUSTER_NODES)
+@router.post('/heal')
+async def heal(request: Request):
+    body = await request.json()
+    action = str(body.get('action', 'reduce_priority'))
+    result = execute_action(action)
+    client = get_async_client(settings.REDIS_URL)
+    await publish(client, 'action_triggered', json.dumps(result))
+    return result
 
 
 @router.get('/overview')
 async def get_overview():
-    snapshot = collect_snapshot()
+    snapshot = collect_system_metrics()
     topology = build_topology(snapshot, count=settings.CLUSTER_NODES)
     with SessionLocal() as session:
         alerts = recent_alerts(session, limit=6)
@@ -111,26 +191,6 @@ async def get_alerts():
     }
 
 
-@router.get('/predictions')
-async def get_predictions():
-    with SessionLocal() as session:
-        predictions = recent_predictions(session, limit=20)
-    return {
-        'predictions': [
-            {
-                'id': item.id,
-                'resource': item.resource,
-                'current': item.current,
-                'predicted': item.predicted,
-                'time_to_threshold': item.time_to_threshold,
-                'risk_score': item.risk_score,
-                'ts': item.ts.isoformat() if item.ts else None,
-            }
-            for item in predictions
-        ]
-    }
-
-
 @router.get('/actions')
 async def get_actions():
     with SessionLocal() as session:
@@ -150,12 +210,6 @@ async def get_actions():
             for item in actions
         ]
     }
-
-
-@router.get('/processes')
-async def get_processes():
-    snapshot = collect_snapshot()
-    return {'processes': snapshot.get('processes', [])}
 
 
 @router.get('/history')
@@ -179,6 +233,19 @@ async def get_history():
     }
 
 
+@router.get('/topology')
+async def get_topology():
+    snapshot = collect_system_metrics()
+    return build_topology(snapshot, count=settings.CLUSTER_NODES)
+
+
+@router.get('/nodes')
+async def get_nodes():
+    snapshot = collect_system_metrics()
+    topology = build_topology(snapshot, count=settings.CLUSTER_NODES)
+    return {'nodes': topology['nodes']}
+
+
 @router.get('/simulation/preview')
 async def get_simulation_preview():
     return build_simulation_payload(inject_anomaly=False)
@@ -187,16 +254,12 @@ async def get_simulation_preview():
 @router.post('/simulation/run')
 async def run_simulation(request: Request):
     body = await request.json()
-    inject_anomaly = bool(body.get('inject_anomaly', False))
-    nodes = int(body.get('nodes', settings.CLUSTER_NODES))
     client = get_async_client(settings.REDIS_URL)
-    payload = build_simulation_payload(inject_anomaly=inject_anomaly)
+    payload = build_simulation_payload(inject_anomaly=bool(body.get('inject_anomaly', False)))
     snapshot = payload['snapshot']
-
-    for index in range(max(1, nodes)):
-      node_payload = dict(snapshot)
-      node_payload['node'] = f'node-{index + 1}'
-      node_payload['host'] = node_payload['node']
-      await publish(client, 'metric_received', json.dumps(node_payload))
-
-    return {'status': 'queued', 'inject_anomaly': inject_anomaly, 'nodes': nodes, 'topology': payload['topology']}
+    for index in range(max(1, int(body.get('nodes', settings.CLUSTER_NODES)))):
+        node_payload = dict(snapshot)
+        node_payload['node'] = f'node-{index + 1}'
+        node_payload['host'] = node_payload['node']
+        await publish(client, 'metric_received', json.dumps(node_payload))
+    return {'status': 'queued', 'topology': payload['topology']}

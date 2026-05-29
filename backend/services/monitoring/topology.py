@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from ..constants import SYSTEM_THRESHOLDS
+from ...config.constants import SYSTEM_THRESHOLDS
 
 
 DEFAULT_NODE_COUNT = 12

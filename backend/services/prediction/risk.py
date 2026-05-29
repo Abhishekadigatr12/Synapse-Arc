@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..constants import FORECAST_THRESHOLDS
+from ...config.constants import FORECAST_THRESHOLDS
 
 
 def time_to_threshold(predictions: list[float], steps: list[int], resource: str) -> str:

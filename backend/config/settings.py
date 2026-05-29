@@ -2,7 +2,7 @@ import os
 
 
 class Settings:
-    REDIS_URL = os.getenv('REDIS_URL', 'redis://redis:6379')
+    REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
     DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./synapse_arc.db')
     MODEL_VERSION = os.getenv('MODEL_VERSION', 'v2.4')
     CLUSTER_NODES = int(os.getenv('CLUSTER_NODES', '12'))

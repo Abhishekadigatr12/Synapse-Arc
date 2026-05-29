@@ -7,8 +7,8 @@ EVENT_CHANNELS = {
 
 SYSTEM_THRESHOLDS = {
 	'cpu': 85,
-	'memory': 85,
-	'disk': 90,
+	'memory': 90,
+	'disk': 95,
 	'network': 80,
 	'temp': 80,
 }
