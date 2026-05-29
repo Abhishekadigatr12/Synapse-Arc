@@ -1,4 +1,10 @@
 from pydantic import BaseModel
+
+
 class Prediction(BaseModel):
-    risk: float
-    affected: list
+    resource: str
+    current: float
+    predicted: float
+    time_to_threshold: str
+    risk_score: float = 0.0
+    forecasts: dict = {}

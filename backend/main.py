@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from datetime import datetime, timezone
 from .api import routes, health, websocket
 from .websocket.manager import manager as ws_manager
 from .event_bus.redis_client import get_async_client
@@ -15,6 +16,7 @@ app.include_router(websocket.router)
 @app.on_event('startup')
 async def startup_event():
     app.state.redis = get_async_client(settings.REDIS_URL)
+    app.state.started_at = datetime.now(timezone.utc)
     loop = asyncio.get_running_loop()
     loop.create_task(relay_redis_events())
     run_in_background(loop)

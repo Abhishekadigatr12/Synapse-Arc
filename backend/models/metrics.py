@@ -1,7 +1,11 @@
 from pydantic import BaseModel
+
+
 class Metrics(BaseModel):
-    node: str
-    cpu: int
-    memory: int
-    temp: int
-    packet_loss: int = 0
+    host: str
+    cpu: float
+    memory: float
+    disk: float = 0.0
+    network: float = 0.0
+    temp: float | None = None
+    processes: list[dict] = []

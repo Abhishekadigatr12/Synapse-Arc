@@ -1,5 +1,9 @@
 from pydantic import BaseModel
+
+
 class Anomaly(BaseModel):
-    node: str
-    type: str
-    details: dict
+    host: str
+    anomaly: bool = False
+    score: float = 0.0
+    severity: str = 'low'
+    reasons: list[str] = []
