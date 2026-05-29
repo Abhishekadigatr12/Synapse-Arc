@@ -1,12 +1,1490 @@
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Synapse Arc</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SYNAPSE-ARC // Autonomous AI Infrastructure Monitoring Command Center</title>
+  <!-- SEO Tags -->
+  <meta name="description" content="SYNAPSE-ARC is a futuristic enterprise AI-powered anomaly detection, cascade failure prediction, and autonomous self-healing platform.">
+  <meta name="keywords" content="AI, DevOps, Auto-scaler, Cloud Infrastructure, Self-healing, Blast Radius, Cyber Command">
+  
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Tailwind CSS Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#4F46E5',
+            secondary: '#9333EA',
+            accent: '#06B6D4',
+            dark: '#0F172A',
+            success: '#10B981',
+            warning: '#F59E0B',
+            danger: '#EF4444',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          spacing: {
+            '3.5': '0.875rem',
+            '4.5': '1.125rem',
+            '5.5': '1.375rem',
+            '6.5': '1.625rem',
+          },
+          boxShadow: {
+            glow: '0 0 15px rgba(79, 70, 229, 0.25)',
+            glowCyan: '0 0 15px rgba(6, 182, 212, 0.3)',
+            glowGreen: '0 0 15px rgba(16, 185, 129, 0.3)',
+            glowRed: '0 0 15px rgba(239, 68, 68, 0.3)',
+            panel: '0 4px 30px rgba(0, 0, 0, 0.05)',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-[#090D1A] dark:text-slate-100 min-h-screen flex transition-colors duration-400 overflow-x-hidden cyber-grid grid-anim relative">
+
+  <!-- Client-side Cyber Error Boundary Screen overlay -->
+  <div id="error-boundary-screen" class="error-boundary-overlay hidden opacity-0 flex-col items-center justify-center gap-6 select-none">
+    <div class="w-16 h-16 rounded-full bg-red-500/10 border border-red-550/20 flex items-center justify-center animate-spin">
+      <i data-lucide="refresh-cw" class="w-8 h-8 text-red-555"></i>
+    </div>
+    <div class="text-center flex flex-col gap-2">
+      <h2 class="text-2xl font-extrabold font-mono text-red-500 tracking-wider">SYSTEM MODULE RECONNECTING...</h2>
+      <p class="text-xs text-slate-400 font-medium">Attempting autonomous enclaves recovery. Please stand by.</p>
+    </div>
+  </div>
+
+  <!-- Particle background layer overlay -->
+  <div id="particles-overlay" class="cyber-particles"></div>
+
+  <!-- Ambient glowing spots behind the grid -->
+  <div class="ambient-glow bg-primary top-10 left-10"></div>
+  <div class="ambient-glow bg-secondary bottom-10 right-10"></div>
+  <div class="ambient-glow bg-accent top-[40%] right-[20%]"></div>
+
+  <!-- LEFT SIDEBAR -->
+  <aside class="w-64 border-r border-slate-200 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl flex flex-col justify-between p-6 z-30 shrink-0 select-none">
+    <div class="flex flex-col gap-6">
+      <!-- Glowing Logo -->
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-primary to-secondary flex items-center justify-center shadow-glow">
+          <i data-lucide="shield-alert" class="w-4.5 h-4.5 text-white"></i>
+        </div>
+        <div class="flex flex-col">
+          <span class="text-sm font-extrabold tracking-widest text-slate-800 dark:text-white font-mono">SYNAPSE-ARC</span>
+          <span class="text-[9px] text-primary dark:text-cyan-400 font-bold tracking-widest font-mono uppercase">AI COMMANDER</span>
+        </div>
+      </div>
+
+      <!-- Navigation tabs -->
+      <nav class="flex flex-col gap-2">
+        <button data-page="overview" class="sidebar-nav-btn flex items-center gap-3.5 px-4.5 py-3 rounded-xl border-l-4 border-primary bg-primary/10 text-primary dark:text-white text-xs font-bold tracking-wider uppercase transition-all duration-300">
+          <i data-lucide="layout-dashboard" class="w-4.5 h-4.5"></i>
+          Overview
+        </button>
+        <button data-page="monitoring" class="sidebar-nav-btn flex items-center gap-3.5 px-4.5 py-3 rounded-xl text-slate-500 dark:text-slate-400 text-xs font-bold tracking-wider uppercase transition-all duration-300 hover:bg-slate-100 dark:hover:bg-slate-800/40">
+          <i data-lucide="activity" class="w-4.5 h-4.5"></i>
+          Operations Monitor
+        </button>
+        <button data-page="incident" class="sidebar-nav-btn flex items-center gap-3.5 px-4.5 py-3 rounded-xl text-slate-500 dark:text-slate-400 text-xs font-bold tracking-wider uppercase transition-all duration-300 hover:bg-slate-100 dark:hover:bg-slate-800/40">
+          <i data-lucide="sparkles" class="w-4.5 h-4.5"></i>
+          Incident Response
+        </button>
+      </nav>
+
+      <!-- Persistent AI Engine Status Card -->
+      <div class="flex flex-col gap-3 p-4 rounded-2xl border border-slate-200 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/35 backdrop-blur-md">
+        <h5 class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">AI Engine Status</h5>
+        
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] text-slate-600 dark:text-slate-400 font-bold uppercase">Engine State</span>
+          <span class="flex items-center text-[10px] text-success font-extrabold font-mono font-mono">
+            <span class="w-1.5 h-1.5 rounded-full bg-success mr-1.5 animate-pulse"></span>
+            ONLINE
+          </span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] text-slate-600 dark:text-slate-400 font-bold uppercase">Model Version</span>
+          <span class="text-[10px] text-slate-850 dark:text-slate-350 font-bold font-mono">v2.4</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] text-slate-600 dark:text-slate-400 font-bold uppercase">Confidence</span>
+          <span class="text-[10px] text-primary dark:text-cyan-400 font-bold font-mono">98.7%</span>
+        </div>
+      </div>
+
+      <!-- System Status Indicators -->
+      <div class="flex flex-col gap-3 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-900/20 backdrop-blur-md">
+        <h5 class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">Telemetry status</h5>
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] text-slate-600 dark:text-slate-400 font-bold uppercase">Uptime Heartbeat</span>
+          <span class="flex items-center text-[10px] text-success font-extrabold font-mono uppercase">
+            <span class="w-1.5 h-1.5 rounded-full bg-success mr-1.5 animate-ping"></span>
+            ACTIVE
+          </span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] text-slate-600 dark:text-slate-400 font-bold uppercase">Enclaves Active</span>
+          <span class="text-[10px] text-slate-800 dark:text-slate-200 font-extrabold font-mono">12 / 12</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Theme Switcher & Footer -->
+    <div class="flex flex-col gap-4">
+      <div class="flex items-center justify-between p-3.5 rounded-xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-900/20">
+        <span id="themeSwitchText" class="text-[9px] font-extrabold tracking-widest font-mono text-slate-400 dark:text-slate-400">CYBER SPACE</span>
+        <label class="relative inline-flex items-center cursor-pointer select-none">
+          <input type="checkbox" id="themeSwitch" checked class="sr-only peer">
+          <div class="w-8 h-4.5 bg-slate-200 dark:bg-slate-800 rounded-full peer peer-checked:bg-primary transition-all duration-300"></div>
+          <div class="absolute left-[2px] top-[2px] w-3.5 h-3.5 bg-white rounded-full toggle-dot peer-checked:translate-x-full transition-transform"></div>
+        </label>
+      </div>
+      <div class="text-[9px] text-slate-400 dark:text-slate-600 text-center font-semibold font-mono tracking-widest uppercase">
+        SYNAPSE-ARC V4.8-PROD
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN VIEWPORT CONTAINER -->
+  <main class="flex-1 flex flex-col min-h-screen relative z-10">
+
+    <!-- GLOBAL TOP HEADER WITH REAL-TIME CLOCKS & SYSTEM OPERATOR PANEL -->
+    <header class="h-20 border-b border-slate-200 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl flex items-center justify-between px-8 z-20 shrink-0 select-none">
+      <div class="flex items-center gap-4">
+        <h1 class="text-sm font-extrabold tracking-widest font-mono uppercase text-slate-800 dark:text-white">SYNAPSE-ARC CLUSTER CORE</h1>
+        <div class="h-4 w-[1px] bg-slate-200 dark:bg-slate-800"></div>
+        <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          AI Commander scanning global matrix
+        </div>
+      </div>
+
+      <!-- Operator Panel and Clocks -->
+      <div class="flex items-center gap-6">
+        
+        <!-- Live Real-Time Presenter clocks -->
+        <div class="hidden xl:grid grid-cols-3 gap-6 border-r border-slate-200 dark:border-slate-850 pr-6 py-1 text-right">
+          <div class="flex flex-col gap-0.5">
+            <span class="text-[8px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest uppercase font-mono">SYSTEM UPTIME</span>
+            <span class="text-xs font-extrabold font-mono text-slate-800 dark:text-slate-200">127 Days</span>
+          </div>
+          <div class="flex flex-col gap-0.5">
+            <span class="text-[8px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest uppercase font-mono">MONITOR DURATION</span>
+            <span id="topDuration" class="text-xs font-extrabold font-mono text-primary dark:text-accent">00:00:00</span>
+          </div>
+          <div class="flex flex-col gap-0.5">
+            <span class="text-[8px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest uppercase font-mono">LIVE UTC TIME</span>
+            <span id="topClockUtc" class="text-xs font-extrabold font-mono text-slate-800 dark:text-slate-200">00:00:00</span>
+          </div>
+        </div>
+
+        <!-- NEW: High-Fidelity Enterprise System Operator Panel -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-primary/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-sm">
+            <i data-lucide="shield" class="w-4.5 h-4.5"></i>
+          </div>
+          <div class="flex flex-col text-left">
+            <span class="text-xs font-bold text-slate-700 dark:text-slate-300">Operator: Admin</span>
+            <span class="text-[8px] text-slate-400 dark:text-slate-500 font-extrabold uppercase font-mono tracking-widest mt-0.5">Infra Commander</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTENT PAGES GRID CONTAINER (Content-based scrolling layout) -->
+    <div class="flex-1 p-8 relative min-h-0 h-auto">
+
+      <!-- ========================================== -->
+      <!-- PAGE 1: EXECUTIVE OVERVIEW / COMMAND CENTER -->
+      <!-- ========================================== -->
+      <section id="page-overview" class="page-view flex flex-col gap-8 h-auto">
+        <!-- Hero Banner Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center animate-fade-in">
+          
+          <!-- Hero Text -->
+          <div class="lg:col-span-6 flex flex-col gap-6">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-bold tracking-wider uppercase w-fit select-none animate-cyber-pulse">
+              <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+              Predictive Autonomic Remediation
+            </div>
+            
+            <h2 class="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-800 dark:text-white leading-[1.1] text-wrap-safety">
+              Predict Infrastructure <span class="bg-clip-text text-transparent bg-gradient-to-r from-primary via-secondary to-accent">Failures</span> Before They Happen
+            </h2>
+            
+            <p class="text-sm md:text-base text-slate-500 dark:text-slate-400 leading-relaxed font-medium text-wrap-safety">
+              AI-powered anomaly detection, cascade prediction, blast radius analysis, and autonomous self-healing engineered for global multi-region clusters.
+            </p>
+
+            <div class="flex items-center gap-4">
+              <button id="ctaLaunchMonitor" class="px-6 py-3.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-extrabold tracking-wider uppercase shadow-glow hover:scale-103 hover:shadow-lg transition-all duration-300">
+                Launch Mission Control
+              </button>
+              <button id="ctaWatchDemo" class="px-6 py-3.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs font-extrabold tracking-wider uppercase hover:bg-slate-100 dark:hover:bg-slate-800/40 hover:-translate-y-0.5 transition-all duration-300">
+                Watch Live Demo
+              </button>
+            </div>
+          </div>
+
+          <!-- Hero Topology Visualizer -->
+          <div class="lg:col-span-6 h-[400px] border border-slate-200/60 dark:border-slate-800/60 bg-white/40 dark:bg-slate-900/30 backdrop-blur-md rounded-2xl flex items-center justify-center p-4 relative shadow-panel group overflow-hidden">
+            <!-- Glass Overlay Card detail -->
+            <div class="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-lg border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/70 dark:bg-slate-900/60 backdrop-blur-md flex items-center gap-2 select-none">
+              <span class="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
+              <span class="text-[9px] font-bold tracking-widest font-mono text-slate-500 dark:text-slate-400 uppercase">ACTIVE SIMULATED ARCHITECTURE</span>
+            </div>
+            
+            <!-- SVG Topology Container -->
+            <div id="hero-topology" class="w-full h-full flex items-center justify-center"></div>
+          </div>
+        </div>
+
+        <!-- NEW: HEALTH RING, CLUSTERS & AI MODEL HEALTH -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-stretch select-none">
+          <!-- circular Health Ring panel -->
+          <div class="xl:col-span-4 glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex items-center justify-between shadow-panel min-h-[160px]">
+            <div class="flex flex-col gap-1.5">
+              <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Cluster health index</h4>
+              <p class="text-xs text-slate-400 font-medium">Continuous system SLA check value.</p>
+              
+              <!-- SLA breach Probability metric -->
+              <div class="flex items-center justify-between mt-3 text-[10px] font-mono border-t border-slate-100 dark:border-slate-850 pt-3 gap-8">
+                <span class="text-slate-400 uppercase">SLA Breach Prob</span>
+                <span id="topSlaBreachVal" class="text-emerald-500 font-extrabold">0.02%</span>
+              </div>
+            </div>
+
+            <!-- Health gauge ring -->
+            <div class="relative w-36 h-36 flex items-center justify-center shrink-0">
+              <svg class="w-full h-full transform -rotate-90" viewBox="0 0 140 140">
+                <circle cx="70" cy="70" r="64" fill="none" stroke="rgba(148, 163, 184, 0.08)" stroke-width="6" />
+                <circle id="kpiHealthRingCircle" cx="70" cy="70" r="64" fill="none" stroke="#10B981" stroke-width="7" stroke-linecap="round" stroke-dasharray="402.12" stroke-dashoffset="0" class="gauge-ring" />
+              </svg>
+              <div class="absolute flex flex-col items-center justify-center">
+                <span id="kpiHealthOverview" data-current="99.98" class="text-2xl font-extrabold font-mono text-slate-800 dark:text-white">99.98%</span>
+                <span class="text-[8px] text-slate-400 font-extrabold tracking-wider uppercase font-mono mt-0.5">SLA HEALTH</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- cluster Rack mapping & Multi-cluster status -->
+          <div class="xl:col-span-4 glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-4 shadow-panel justify-between min-h-[160px]">
+            <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Multi-Cluster Regions</h4>
+            
+            <div class="flex flex-col gap-2 font-mono text-[9px]">
+              <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-1.5">
+                <span class="text-slate-400">CLUSTER-A (US-EAST)</span>
+                <span id="clsAState" class="px-2 py-0.5 rounded font-extrabold text-[8px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">HEALTHY</span>
+              </div>
+              <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-1.5">
+                <span class="text-slate-400">CLUSTER-B (EU-WEST)</span>
+                <span id="clsBState" class="px-2 py-0.5 rounded font-extrabold text-[8px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">HEALTHY</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400">CLUSTER-C (AS-SOUTH)</span>
+                <span id="clsCState" class="px-2 py-0.5 rounded font-extrabold text-[8px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">HEALTHY</span>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-2 border-t border-slate-100 dark:border-slate-850 pt-3 mt-1 text-center text-[9px] font-bold">
+              <span class="text-slate-400">A: <span id="rackACount" class="text-emerald-500">4/4</span></span>
+              <span class="text-slate-400">B: <span id="rackBCount" class="text-emerald-500">4/4</span></span>
+              <span class="text-slate-400">C: <span id="rackCCount" class="text-emerald-500">4/4</span></span>
+            </div>
+          </div>
+
+          <!-- NEW: AI Model Health & Training metrics -->
+          <div class="xl:col-span-4 glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-4 shadow-panel justify-between min-h-[160px]">
+            <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">AI Model Health monitor</h4>
+            
+            <div class="grid grid-cols-2 gap-4 text-left font-mono">
+              <div class="flex flex-col">
+                <span class="text-[8px] text-slate-400 uppercase font-bold">Model Version</span>
+                <span class="text-xs font-bold text-slate-850 dark:text-slate-250 mt-0.5">v2.4-Core</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-[8px] text-slate-400 uppercase font-bold">Accuracy</span>
+                <span class="text-xs font-bold text-emerald-500 mt-0.5">98.7%</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-[8px] text-slate-400 uppercase font-bold">Retrained</span>
+                <span class="text-xs font-bold text-slate-700 dark:text-slate-350 mt-0.5">3 Days Ago</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-[8px] text-slate-400 uppercase font-bold">Inference Latency</span>
+                <span class="text-xs font-bold text-primary dark:text-accent mt-0.5">4.2 ms</span>
+              </div>
+            </div>
+
+            <div class="h-[1px] bg-slate-100 dark:bg-slate-800"></div>
+            <div class="flex justify-between text-[9px] font-mono text-slate-400 font-extrabold">
+              <span>STATUS</span>
+              <span class="text-emerald-500">OPTIMAL SCANNING</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI INFRASTRUCTURE METRICS GRID -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 select-none">
+          <!-- Card 1 -->
+          <div class="glass-panel p-5.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-2.5 transition-all duration-300 hover:-translate-y-1">
+            <span class="text-[10px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">Infrastructure Health</span>
+            <div class="flex items-baseline gap-1.5">
+              <span id="kpiHealth" data-current="99.98" class="text-3xl font-extrabold tracking-tight font-mono text-emerald-500">99.98%</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-semibold font-mono">
+              <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-emerald-500"></i>
+              STABLE SLA
+            </div>
+          </div>
+          <!-- Card 2 -->
+          <div class="glass-panel p-5.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-2.5 transition-all duration-300 hover:-translate-y-1">
+            <span class="text-[10px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">Active Nodes</span>
+            <div class="flex items-baseline gap-1.5">
+              <span id="kpiNodes" data-current="12" class="text-3xl font-extrabold tracking-tight font-mono text-slate-800 dark:text-white font-mono">12</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-semibold font-mono">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              ALL ENCLAVES SYNCHRONIZED
+            </div>
+          </div>
+          <!-- Card 3 -->
+          <div class="glass-panel p-5.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-2.5 transition-all duration-300 hover:-translate-y-1">
+            <span class="text-[10px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">Anomalies Detected</span>
+            <div class="flex items-baseline gap-1.5">
+              <span id="kpiAnomalies" data-current="0" class="text-3xl font-extrabold tracking-tight font-mono text-slate-800 dark:text-white font-mono">0</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-semibold font-mono">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-500"></i>
+              SAFE STATE GUARD
+            </div>
+          </div>
+          <!-- Card 4 -->
+          <div class="glass-panel p-5.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-2.5 transition-all duration-300 hover:-translate-y-1">
+            <span class="text-[10px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">Predicted Threats</span>
+            <div class="flex items-baseline gap-1.5">
+              <span id="kpiThreats" data-current="0" class="text-3xl font-extrabold tracking-tight font-mono text-slate-800 dark:text-white font-mono">0</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-semibold font-mono">
+              <i data-lucide="radar" class="w-3.5 h-3.5 text-primary"></i>
+              CONTINUOUS NEURAL SCAN
+            </div>
+          </div>
+          <!-- Card 5 -->
+          <div class="glass-panel p-5.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-2.5 transition-all duration-300 hover:-translate-y-1">
+            <span class="text-[10px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">Loss Prevented</span>
+            <div class="flex items-baseline gap-1.5">
+              <span id="kpiLoss" data-current="420.4" class="text-3xl font-extrabold tracking-tight font-mono text-accent">$420.4K</span>
+            </div>
+            <div class="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-semibold font-mono">
+              <i data-lucide="badge-dollar-sign" class="w-3.5 h-3.5 text-emerald-500"></i>
+              SLA DAMAGE AVOIDED
+            </div>
+          </div>
+        </div>
+
+        <!-- AI DETECTION SUMMARY COUNTER CARD -->
+        <div class="glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-4 shadow-panel select-none h-auto">
+          <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">AI Threat Discovery Summary</h4>
+          
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-center font-mono">
+            <div class="flex flex-col gap-1 p-3.5 border border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-900/10 rounded-2xl">
+              <span class="text-[9px] text-slate-400 font-extrabold uppercase">Anomalies Detected Today</span>
+              <span id="ovAnomaliesToday" data-current="0" class="text-xl font-extrabold text-slate-800 dark:text-white font-mono">0</span>
+            </div>
+            <div class="flex flex-col gap-1 p-3.5 border border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-900/10 rounded-2xl">
+              <span class="text-[9px] text-slate-400 font-extrabold uppercase">Threats Blocked</span>
+              <span id="ovThreatsPrevented" data-current="6" class="text-xl font-extrabold text-emerald-500 font-mono">6</span>
+            </div>
+            <div class="flex flex-col gap-1 p-3.5 border border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-900/10 rounded-2xl">
+              <span class="text-[9px] text-slate-400 font-extrabold uppercase">Predictions Modeled</span>
+              <span id="ovPredictions" data-current="104" class="text-xl font-extrabold text-primary dark:text-indigo-400 font-mono">104</span>
+            </div>
+            <div class="flex flex-col gap-1 p-3.5 border border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-900/10 rounded-2xl">
+              <span class="text-[9px] text-slate-400 font-extrabold uppercase">Autonomous Recoveries</span>
+              <span id="ovHealActions" data-current="32" class="text-xl font-extrabold text-accent font-mono">32</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- HORIZONTAL EVENT TIMELINE DIAGRAM -->
+        <div class="glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-6 shadow-panel select-none h-auto">
+          <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Infrastructure Event Timeline</h4>
+          
+          <div class="flex flex-wrap lg:flex-nowrap justify-between gap-6 relative min-h-[90px] px-4">
+            <div class="flex flex-col items-center flex-1 min-w-[120px] relative">
+              <div class="w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="radio" class="w-4 h-4"></i></div>
+              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">TELEMETRY INGEST</span>
+              <span class="text-[8px] text-slate-400 text-center mt-1">Edge streams synchronized</span>
+            </div>
+            <div class="flex flex-col items-center flex-1 min-w-[120px] relative">
+              <div class="w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="thermometer" class="w-4 h-4"></i></div>
+              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">ANOMALY SPOTTED</span>
+              <span class="text-[8px] text-slate-400 text-center mt-1">Thermal limits broken</span>
+            </div>
+            <div class="flex flex-col items-center flex-1 min-w-[120px] relative">
+              <div class="w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="shield-check" class="w-4 h-4"></i></div>
+              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">RISK COMPASS RUN</span>
+              <span class="text-[8px] text-slate-400 text-center mt-1">Graph cascade evaluation</span>
+            </div>
+            <div class="flex flex-col items-center flex-1 min-w-[120px] relative">
+              <div class="w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="alert-triangle" class="w-4 h-4"></i></div>
+              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">CASCADE PREDICTED</span>
+              <span class="text-[8px] text-slate-400 text-center mt-1">Path bottlenecks identified</span>
+            </div>
+            <div class="flex flex-col items-center flex-1 min-w-[120px] relative">
+              <div class="w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="sparkles" class="w-4 h-4"></i></div>
+              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">SELF-HEALING COMPLETE</span>
+              <span class="text-[8px] text-slate-400 text-center mt-1">Workload safe isolation</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DYNAMIC PIPELINE ANIMATION CARD -->
+        <div class="glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-6 h-auto">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Architecture pipeline workflow</h3>
+            <span class="text-[10px] font-bold text-slate-400 font-mono">AUTONOMOUS RUNTIME STABLE</span>
+          </div>
+          <div id="architecture-flow" class="flex flex-wrap gap-6 justify-between items-center relative min-h-[120px] px-4"></div>
+        </div>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- PAGE 2: REAL-TIME MONITOR / OPERATIONS CENTER -->
+      <!-- ============================================ -->
+      <section id="page-monitoring" class="page-view flex flex-col gap-8 hidden-view h-auto">
+        
+        <!-- Live status bar -->
+        <div class="flex flex-wrap items-center justify-between gap-6 p-4.5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/60 backdrop-blur-md select-none">
+          <div class="flex items-center gap-4">
+            <div id="liveStatusBadge" class="flex items-center px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 shadow-glowGreen">
+              <span class="w-2.5 h-2.5 rounded-full mr-2 bg-emerald-500 animate-ping"></span>
+              SYSTEM NORMAL
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Guardian model actively scanning active enclaves.
+            </div>
+          </div>
+
+          <button id="btnStartSimMonitor" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-extrabold tracking-wider uppercase shadow-glow hover:scale-103 hover:shadow-lg transition-all duration-300">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i>
+            Run Simulation
+          </button>
+        </div>
+
+        <!-- CASCADE PATH VISUALIZATION & PREDICTION WINDOW -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-8 select-none h-auto">
+          <!-- Predicted Cascade Path sequential arrows -->
+          <div class="md:col-span-8 glass-panel p-5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex items-center justify-between shadow-panel">
+            <div class="flex flex-col gap-1">
+              <span class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">Predicted cascade sequence paths</span>
+              <div id="predicted-cascade-path-list" class="mt-2 text-sm text-wrap-safety">
+                <span class="text-xs text-slate-500 font-medium">No cascade failure predicted. Paths stable.</span>
+              </div>
+            </div>
+            <div class="p-2 bg-primary/10 border border-primary/20 text-primary dark:text-indigo-300 rounded-xl shrink-0"><i data-lucide="git-merge" class="w-5 h-5"></i></div>
+          </div>
+
+          <!-- Prediction Countdown timer window -->
+          <div class="md:col-span-4 glass-panel p-5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex items-center justify-between shadow-panel">
+            <div class="flex flex-col gap-0.5">
+              <span class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">EST. FAILURE TIMELINE RISK</span>
+              <span id="aiPredictionTimerVal" class="text-xl font-bold font-mono text-slate-800 dark:text-white mt-0.5">2 Min 18 Secs</span>
+            </div>
+            <div class="p-2 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl animate-pulse shrink-0"><i data-lucide="hourglass" class="w-5 h-5"></i></div>
+          </div>
+        </div>
+
+        <!-- NEW: EXPLAINABLE AI CORE (WHY AI PREDICTED THIS) & DEPENDENCIES -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-stretch select-none h-auto">
+          <!-- Deep XAI Explanation metrics -->
+          <div class="xl:col-span-5 glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col justify-between shadow-panel gap-4">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Why the AI predicted this incident</h4>
+              <i data-lucide="help-circle" class="w-4 h-4 text-slate-500"></i>
+            </div>
+            
+            <span id="xaiRiskIncreaseHeader" class="text-xs font-bold font-mono">Risk Level Deviation: Nominal</span>
+            
+            <div id="xai-metric-correlations" class="flex flex-col gap-2.5">
+              <!-- Correlations appended live -->
+            </div>
+            
+            <p class="text-[9px] text-slate-400 dark:text-slate-500 font-medium">Neural weights correlate high thermal core deviation against inter-cluster network edge congestions.</p>
+          </div>
+
+          <!-- Dependency impact and Graph -->
+          <div class="xl:col-span-4 glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col justify-between shadow-panel gap-4">
+            <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Functional dependency map</h4>
+            
+            <div class="h-28 border border-slate-100 dark:border-slate-805 bg-slate-55/10 dark:bg-slate-950/20 rounded-xl flex items-center justify-center p-2">
+              <svg width="100%" height="100%" viewBox="0 0 280 100" xmlns="http://www.w3.org/2000/svg">
+                <g transform="translate(10, 10)">
+                  <rect width="60" height="24" rx="4" fill="#0F172A" stroke="#10B981" stroke-width="1.5"/>
+                  <text x="30" y="15" text-anchor="middle" fill="#f8fafc" font-size="7.5" font-family="'JetBrains Mono'">Database</text>
+                </g>
+                <g transform="translate(100, 10)">
+                  <rect width="60" height="24" rx="4" fill="#0F172A" stroke="#4F46E5" stroke-width="1.5"/>
+                  <text x="30" y="15" text-anchor="middle" fill="#f8fafc" font-size="7.5" font-family="'JetBrains Mono'">API Broker</text>
+                </g>
+                <g transform="translate(190, 10)">
+                  <rect width="60" height="24" rx="4" fill="#0F172A" stroke="#9333EA" stroke-width="1.5"/>
+                  <text x="30" y="15" text-anchor="middle" fill="#f8fafc" font-size="7.5" font-family="'JetBrains Mono'">Load Balancer</text>
+                </g>
+                <g transform="translate(100, 60)">
+                  <rect width="60" height="24" rx="4" fill="#0F172A" stroke="#06B6D4" stroke-width="1.5"/>
+                  <text x="30" y="15" text-anchor="middle" fill="#f8fafc" font-size="7.5" font-family="'JetBrains Mono'">Compute Core</text>
+                </g>
+                <line x1="70" y1="22" x2="100" y2="22" stroke="rgba(148, 163, 184, 0.4)" stroke-width="1" class="flow-line" />
+                <line x1="160" y1="22" x2="190" y2="22" stroke="rgba(148, 163, 184, 0.4)" stroke-width="1" class="flow-line" />
+                <line x1="130" y1="34" x2="130" y2="60" stroke="rgba(148, 163, 184, 0.4)" stroke-width="1" class="flow-line" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- Risk Confidence segmentations -->
+          <div class="xl:col-span-3 glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col justify-between shadow-panel gap-3.5">
+            <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Risk category breakdown</h4>
+            
+            <div class="flex flex-col gap-2 font-mono text-[9px]">
+              <!-- Thermal -->
+              <div class="flex flex-col gap-1">
+                <div class="flex justify-between text-slate-500">
+                  <span>THERMAL DRIFT</span>
+                  <span id="confThermalVal">14%</span>
+                </div>
+                <div class="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div id="confThermalBar" class="h-full bg-amber-500" style="width: 14%"></div>
+                </div>
+              </div>
+              <!-- Network -->
+              <div class="flex flex-col gap-1">
+                <div class="flex justify-between text-slate-500">
+                  <span>NETWORK PACKETS</span>
+                  <span id="confNetworkVal">8%</span>
+                </div>
+                <div class="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div id="confNetworkBar" class="h-full bg-primary" style="width: 8%"></div>
+                </div>
+              </div>
+              <!-- Power -->
+              <div class="flex flex-col gap-1">
+                <div class="flex justify-between text-slate-500">
+                  <span>GRID POWER</span>
+                  <span id="confPowerVal">12%</span>
+                </div>
+                <div class="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div id="confPowerBar" class="h-full bg-accent" style="width: 12%"></div>
+                </div>
+              </div>
+              <!-- Memory -->
+              <div class="flex flex-col gap-1">
+                <div class="flex justify-between text-slate-500">
+                  <span>SYSTEM MEMORY</span>
+                  <span id="confMemoryVal">5%</span>
+                </div>
+                <div class="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div id="confMemoryBar" class="h-full bg-secondary" style="width: 5%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Panel Split Grid -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start h-auto">
+          
+          <!-- LEFT SIDE: Live topologies + Telemetry Grid -->
+          <div class="xl:col-span-8 flex flex-col gap-8">
+            
+            <!-- Live Topology map Card -->
+            <div class="glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-6 relative shadow-panel h-auto">
+              <div class="flex items-center justify-between">
+                <div class="flex flex-col gap-1">
+                  <h3 class="text-sm font-extrabold text-slate-800 dark:text-white uppercase tracking-wider font-mono">Operations Topology Map</h3>
+                  <span class="text-[10px] text-slate-400 font-bold uppercase">Click any node node to inspect parameters</span>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <span class="text-[10px] text-slate-400 font-extrabold font-mono uppercase">Stable</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                    <span class="text-[10px] text-slate-400 font-extrabold font-mono uppercase">Anomaly</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                    <span class="text-[10px] text-slate-400 font-extrabold font-mono uppercase">Critical</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SVG Canvas Map -->
+              <div class="h-[430px] border border-slate-100 dark:border-slate-800/40 bg-slate-50/10 dark:bg-slate-900/20 rounded-2xl flex items-center justify-center p-4 overflow-hidden relative">
+                <div id="live-monitor-topology" class="w-full h-full flex items-center justify-center"></div>
+              </div>
+            </div>
+
+            <!-- Telemetry Sparklines Grid -->
+            <div class="flex flex-col gap-5">
+              <h3 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Live telemetry parameters</h3>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="glass-panel p-4.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-3 relative overflow-hidden transition-all duration-300">
+                  <span class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">CPU Utilization</span>
+                  <div class="flex items-baseline justify-between">
+                    <span id="telCpu" data-current="45.2" class="text-2xl font-extrabold font-mono text-slate-800 dark:text-white font-mono">45.2%</span>
+                    <div id="sparkline-cpu" class="w-20 h-8"></div>
+                  </div>
+                  <div class="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div id="telCpuBar" class="h-full bg-primary" style="width: 45.2%"></div>
+                  </div>
+                </div>
+
+                <div class="glass-panel p-4.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-3 relative overflow-hidden transition-all duration-300">
+                  <span class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">GPU Temperature</span>
+                  <div class="flex items-baseline justify-between">
+                    <span id="telGpu" data-current="62.8" class="text-2xl font-extrabold font-mono text-slate-800 dark:text-white font-mono">62.8°C</span>
+                    <div id="sparkline-gpu" class="w-20 h-8"></div>
+                  </div>
+                  <div class="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div id="telGpuBar" class="h-full bg-secondary" style="width: 62.8%"></div>
+                  </div>
+                </div>
+
+                <div class="glass-panel p-4.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-3 relative overflow-hidden transition-all duration-300">
+                  <span class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">Memory Utilization</span>
+                  <div class="flex items-baseline justify-between">
+                    <span id="telMem" data-current="54.1" class="text-2xl font-extrabold font-mono text-slate-800 dark:text-white font-mono">54.1%</span>
+                    <div id="sparkline-memory" class="w-20 h-8"></div>
+                  </div>
+                  <div class="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div id="telMemBar" class="h-full bg-accent" style="width: 54.1%"></div>
+                  </div>
+                </div>
+
+                <div class="glass-panel p-4.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-3 relative overflow-hidden transition-all duration-300">
+                  <span class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">Avg Network Latency</span>
+                  <div class="flex items-baseline justify-between">
+                    <span id="telLat" data-current="24" class="text-2xl font-extrabold font-mono text-slate-800 dark:text-white font-mono">24 ms</span>
+                    <div id="sparkline-latency" class="w-20 h-8"></div>
+                  </div>
+                  <div class="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div id="telLatBar" class="h-full bg-primary" style="width: 24%"></div>
+                  </div>
+                </div>
+
+                <div class="glass-panel p-4.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-3 relative overflow-hidden transition-all duration-300">
+                  <span class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">Packet Loss Rate</span>
+                  <div class="flex items-baseline justify-between">
+                    <span id="telLoss" data-current="0.01" class="text-2xl font-extrabold font-mono text-slate-800 dark:text-white font-mono">0.01%</span>
+                    <div id="sparkline-packetLoss" class="w-20 h-8"></div>
+                  </div>
+                  <div class="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div id="telLossBar" class="h-full bg-danger" style="width: 1%"></div>
+                  </div>
+                </div>
+
+                <div class="glass-panel p-4.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-3 relative overflow-hidden transition-all duration-300">
+                  <span class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">Infrastructure Power</span>
+                  <div class="flex items-baseline justify-between">
+                    <span id="telPower" data-current="14.2" class="text-2xl font-extrabold font-mono text-slate-800 dark:text-white font-mono">14.2 kW</span>
+                    <div id="sparkline-power" class="w-20 h-8"></div>
+                  </div>
+                  <div class="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div id="telPowerBar" class="h-full bg-accent" style="width: 56%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Digital Twin & Dependency layout -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 select-none">
+              <!-- Blast Radius Forecast table -->
+              <div class="glass-panel p-5.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col justify-between shadow-panel gap-3.5">
+                <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Blast Radius Infection Forecast</h4>
+                
+                <div class="flex flex-col gap-2 font-mono text-[10px]">
+                  <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-1.5">
+                    <span class="text-slate-400">CURRENT AFFECTED ENCLAVES</span>
+                    <span id="forecastCurrent" class="font-bold text-slate-800 dark:text-white">0 Node</span>
+                  </div>
+                  <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-1.5">
+                    <span class="text-slate-400">EXPECTED BLAST IN 2 MIN</span>
+                    <span id="forecastMin2" class="font-bold text-amber-500">0 Nodes</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-400">EXPECTED BLAST IN 5 MIN</span>
+                    <span id="forecastMin5" class="font-bold text-red-500">0 Nodes</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Digital Twin Before/After comparison -->
+              <div class="glass-panel p-5.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-4 shadow-panel justify-between">
+                <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">AI Digital Twin State comparison</h4>
+                
+                <div class="flex flex-col gap-2.5">
+                  <div class="flex flex-col gap-1">
+                    <div class="flex justify-between text-[9px] font-mono text-slate-500">
+                      <span>CURRENT RUNTIME STATE</span>
+                      <span id="twinCurrentText">4% Risk</span>
+                    </div>
+                    <div class="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div id="twinCurrentBar" class="h-full bg-emerald-500" style="width: 4%"></div>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <div class="flex justify-between text-[9px] font-mono text-slate-500">
+                      <span>PREDICTED TWIN FUTURE STATE</span>
+                      <span id="twinPredictedText">5% Risk</span>
+                    </div>
+                    <div class="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div id="twinPredictedBar" class="h-full bg-red-500" style="width: 5%"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between text-[9px] font-mono text-slate-400 font-extrabold mt-1">
+                  <span>DIVERGENCE DELTA</span>
+                  <span id="twinDiffText" class="text-amber-500">▲ 1% Divergence</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT SIDE: Node Inspector, Risk gauges, logs -->
+          <div class="xl:col-span-4 flex flex-col gap-8">
+            
+            <!-- Dynamic Node Telemetry inspector -->
+            <div class="glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-5 shadow-panel relative h-auto">
+              <div class="absolute top-4 right-4 z-10 px-2 py-0.5 rounded-md border border-primary/20 bg-primary/5 text-[9px] font-extrabold tracking-widest font-mono text-primary uppercase select-none animate-pulse">
+                ENCLAVE METRICS
+              </div>
+
+              <div class="flex items-center gap-3 mt-1 select-none">
+                <div class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-800/80 flex items-center justify-center text-slate-600 dark:text-slate-300">
+                  <i data-lucide="server" class="w-5 h-5"></i>
+                </div>
+                <div class="flex flex-col">
+                  <h3 id="insNodeName" class="text-sm font-extrabold text-slate-800 dark:text-white tracking-wider font-mono uppercase">DB-CLUSTER-08</h3>
+                  <span id="insNodeRole" class="text-[9px] text-slate-400 font-bold uppercase">DATABASE</span>
+                </div>
+              </div>
+
+              <div class="h-[1px] bg-slate-100 dark:bg-slate-800/60"></div>
+
+              <!-- Node state readout metrics -->
+              <div class="flex flex-col gap-4 select-none">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] text-slate-400 font-extrabold font-mono uppercase">Enclave State</span>
+                  <span id="insStatus" class="text-xs px-2.5 py-0.5 rounded-full font-bold tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">HEALTHY</span>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <span class="text-[9px] text-slate-400 font-extrabold font-mono uppercase">Core Temp Stream</span>
+                  <div id="insSparkline" class="h-12 border border-slate-100 dark:border-slate-800/30 bg-slate-50/10 dark:bg-slate-900/10 rounded-lg p-2.5 flex items-center justify-center overflow-hidden"></div>
+                </div>
+
+                <!-- Meter bars -->
+                <div class="flex flex-col gap-3">
+                  <div class="flex flex-col gap-1">
+                    <div class="flex justify-between text-[10px] font-mono text-slate-500">
+                      <span>LOAD</span>
+                      <span id="insCpuText">45%</span>
+                    </div>
+                    <div class="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div id="insCpuBar" class="h-full bg-primary" style="width: 45%"></div>
+                    </div>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <div class="flex justify-between text-[10px] font-mono text-slate-500">
+                      <span>MEM</span>
+                      <span id="insRamText">62%</span>
+                    </div>
+                    <div class="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div id="insRamBar" class="h-full bg-secondary" style="width: 62%"></div>
+                    </div>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <div class="flex justify-between text-[10px] font-mono text-slate-500">
+                      <span>TEMP</span>
+                      <span id="insTempText">62°C</span>
+                    </div>
+                    <div class="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div id="insTempBar" class="h-full bg-accent" style="width: 62%"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI ROOT CAUSE ANALYSIS PANEL -->
+            <div class="glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-4 shadow-panel select-none h-auto">
+              <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">AI Root Cause Analysis</h4>
+              
+              <div class="flex flex-col gap-3 font-mono">
+                <div class="flex justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
+                  <span class="text-[10px] text-slate-400 uppercase font-bold">Primary Cause</span>
+                  <span id="rcaCauseVal" class="text-xs font-bold text-slate-800 dark:text-slate-200">N/A</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
+                  <span class="text-[10px] text-slate-400 uppercase font-bold">Model Confidence</span>
+                  <span id="rcaConfidenceVal" class="text-xs font-bold text-primary dark:text-cyan-400">0%</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
+                  <span class="text-[10px] text-slate-400 uppercase font-bold">Affected Systems</span>
+                  <span id="rcaAffectedVal" class="text-xs font-bold text-slate-800 dark:text-slate-200">0 Systems</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-[10px] text-slate-400 uppercase font-bold">Est. Escalation Time</span>
+                  <span id="rcaTimeVal" class="text-xs font-bold text-red-500">N/A</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI Risk Analysis radial widget -->
+            <div class="glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-6 shadow-panel h-auto">
+              <h3 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">AI Cascade Risk Analysis</h3>
+              
+              <div class="flex items-center gap-6 justify-center select-none">
+                <div class="relative w-32 h-32 flex items-center justify-center shrink-0">
+                  <svg class="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                    <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(148, 163, 184, 0.08)" stroke-width="6" />
+                    <circle id="aiRadialProgressCircle" cx="60" cy="60" r="54" fill="none" stroke="#10B981" stroke-width="7" stroke-linecap="round" class="gauge-ring" />
+                  </svg>
+                  <div class="absolute flex flex-col items-center justify-center">
+                    <span id="aiRiskScoreText" class="text-4xl font-extrabold text-slate-800 dark:text-white font-mono"><span id="aiRiskScoreVal" data-current="4">4%</span></span>
+                    <span class="text-[9px] text-slate-400 font-extrabold tracking-wider uppercase font-mono mt-0.5">RISK SCORE</span>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-3.5 flex-1 select-none font-mono">
+                  <div class="flex flex-col">
+                    <span class="text-[9px] text-slate-400 font-extrabold font-mono uppercase">AI Confidence</span>
+                    <span id="aiConfidenceVal" data-current="98.7" class="text-sm font-bold text-slate-800 dark:text-white mt-1">98.70%</span>
+                  </div>
+                  <div class="flex flex-col">
+                    <span class="text-[9px] text-slate-400 font-extrabold font-mono uppercase">Threat Level</span>
+                    <span id="aiThreatLevelVal" class="text-sm font-bold text-emerald-500 mt-1">Minimal</span>
+                  </div>
+                  <div class="flex flex-col">
+                    <span class="text-[9px] text-slate-400 font-extrabold font-mono uppercase">Est. Threat Window</span>
+                    <span id="aiFailureWindowVal" class="text-sm font-bold text-slate-700 dark:text-slate-300 mt-1">N/A</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Risk progression Area timeline Chart card -->
+            <div class="glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-4 shadow-panel relative h-auto">
+              <h3 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Cascade Risk Progression Timeline</h3>
+              <div id="timeline-chart-svg" class="h-44 border border-slate-100 dark:border-slate-800/40 bg-slate-50/10 dark:bg-slate-900/10 rounded-2xl p-2.5 flex items-center justify-center overflow-hidden"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LIVE ALERT CENTER FEED & ACTIVITY LOGGER -->
+        <div class="glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-6 shadow-panel h-auto">
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 flex-wrap gap-4">
+            <h3 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Live Alert Center Feed</h3>
+            
+            <div class="flex items-center gap-3 text-[10px] font-bold font-mono">
+              <span class="px-2.5 py-1 rounded-lg bg-red-500/10 text-red-500 flex items-center gap-1.5 border border-red-500/20">
+                CRITICAL <span id="badgeCritCount" class="bg-red-500 text-white rounded px-1 text-[8px]">0</span>
+              </span>
+              <span class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-500 flex items-center gap-1.5 border border-amber-500/20">
+                WARNING <span id="badgeWarnCount" class="bg-amber-500 text-white rounded px-1 text-[8px]">0</span>
+              </span>
+              <span class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center gap-1.5 border border-emerald-500/20">
+                RECOVERED <span id="badgeRecovCount" class="bg-emerald-500 text-white rounded px-1 text-[8px]">0</span>
+              </span>
+              <span class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center gap-1.5 border border-slate-200 dark:border-slate-800/80">
+                MESSAGES <span id="badgeInfoCount" class="bg-slate-350 dark:bg-slate-700 text-white rounded px-1 text-[8px]">0</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800/50 bg-slate-50/20 dark:bg-slate-900/20">
+            <table class="w-full text-left border-collapse select-none">
+              <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/40 font-mono text-[9px] text-slate-400 dark:text-slate-500 tracking-wider uppercase">
+                  <th class="py-3 px-4 w-28 font-mono">Timestamp</th>
+                  <th class="py-3 px-4 w-32 font-mono">Severity</th>
+                  <th class="py-3 px-4 font-mono">Log Details</th>
+                </tr>
+              </thead>
+              <tbody id="log-table-rows" class="divide-y divide-slate-100 dark:divide-slate-800/40">
+                <!-- Logs appended -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- PAGE 3: INCIDENT RESPONSE & SELF-HEALING     -->
+      <!-- ============================================ -->
+      <section id="page-incident" class="page-view flex flex-col gap-8 hidden-view h-auto">
+        
+        <!-- Danger warning flashing banner -->
+        <div id="page3-critical-alert" class="hidden items-center justify-between gap-6 p-5.5 rounded-2xl border border-red-500/20 bg-red-500/[0.03] backdrop-blur-md transition-all duration-300 animate-pulse h-auto">
+          <div class="flex items-center gap-4.5">
+            <div class="w-11 h-11 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center">
+              <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+            </div>
+            <div class="flex flex-col gap-1">
+              <h3 class="text-sm font-extrabold text-red-500 tracking-wider uppercase font-mono">CRITICAL OUTAGE RISK IDENTIFIED</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 font-medium text-wrap-safety">
+                Thermal threshold violation on Db-Cluster-08 cascading to load balancing fabric. Financial risk evaluated: <span class="font-bold text-red-400 font-mono">$12,400/min</span>.
+              </p>
+            </div>
+          </div>
+          
+          <div class="flex items-center gap-4">
+            <div class="flex flex-col text-right">
+              <span class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">Blast Coverage</span>
+              <span class="text-xs text-red-500 dark:text-red-400 font-bold uppercase font-mono">3 / 12 Nodes Infected</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- INCIDENT COMMAND SUMMARY -->
+        <div class="glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 backdrop-blur-md flex flex-wrap justify-between gap-6 shadow-panel select-none h-auto">
+          <div class="flex flex-col gap-1">
+            <h4 class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">INCIDENT COMMAND STATUS</h4>
+            <span class="text-base font-extrabold text-slate-800 dark:text-white mt-1">Containment Sequencer Protocol Active</span>
+          </div>
+
+          <div class="flex items-center gap-8 text-right font-mono">
+            <div class="flex flex-col">
+              <span class="text-[8px] text-slate-400 uppercase">SEVERITY LEVEL</span>
+              <span class="text-xs font-extrabold text-red-500">LEVEL 5 CRITICAL</span>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-[8px] text-slate-400 uppercase">AFFECTED NODES</span>
+              <span class="text-xs font-extrabold text-slate-800 dark:text-white">DB-08, LB-05, API-04</span>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-[8px] text-slate-400 uppercase">CONTAINMENT STATUS</span>
+              <span class="text-xs font-extrabold text-accent">RE-ROUTING RUNNING</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- NEW: DYNAMIC INCIDENT REPLAY SCRUBBER TIMELINE -->
+        <div class="glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 backdrop-blur-md flex flex-col gap-5 shadow-panel select-none h-auto">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
+            <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Incident Replay Scrubbing timeline</h4>
+            <span class="text-[8px] text-slate-400 font-bold font-mono">CLICK STEPS TO scrubbing STATES</span>
+          </div>
+
+          <div class="flex flex-wrap gap-4 justify-between items-center px-4 py-2 font-mono text-[9px]">
+            <!-- Scrubber 1 -->
+            <button data-stage-index="0" class="replay-timeline-node px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center gap-2 cursor-pointer transition-colors bg-white dark:bg-slate-900/40 font-bold">
+              <span>00:00</span>
+              <span class="font-medium text-slate-400">Normal</span>
+            </button>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-slate-650"></i>
+            <!-- Scrubber 2 -->
+            <button data-stage-index="1" class="replay-timeline-node px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center gap-2 cursor-pointer transition-colors bg-white dark:bg-slate-900/40 font-bold">
+              <span>00:15</span>
+              <span class="font-medium text-slate-400">Anomaly</span>
+            </button>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-slate-650"></i>
+            <!-- Scrubber 3 -->
+            <button data-stage-index="2" class="replay-timeline-node px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center gap-2 cursor-pointer transition-colors bg-white dark:bg-slate-900/40 font-bold">
+              <span>00:32</span>
+              <span class="font-medium text-slate-400">Cascade</span>
+            </button>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-slate-650"></i>
+            <!-- Scrubber 4 -->
+            <button data-stage-index="3" class="replay-timeline-node px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center gap-2 cursor-pointer transition-colors bg-white dark:bg-slate-900/40 font-bold">
+              <span>00:45</span>
+              <span class="font-medium text-slate-400">Remediation</span>
+            </button>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-slate-650"></i>
+            <!-- Scrubber 5 -->
+            <button data-stage-index="5" class="replay-timeline-node px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center gap-2 cursor-pointer transition-colors bg-white dark:bg-slate-900/40 font-bold">
+              <span>01:08</span>
+              <span class="font-medium text-slate-400">Complete</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Workflow Tracker Banner -->
+        <div class="glass-panel p-6.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 backdrop-blur-md flex flex-col gap-6 shadow-panel h-auto">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Self-Healing Pipeline Steps</h3>
+            <span class="text-[10px] font-bold text-primary dark:text-cyan-400 font-mono">DETERMINISTIC CONFLICT RESOLUTION RUNNING</span>
+          </div>
+          
+          <div id="workflow-steps-indicator" class="flex flex-wrap gap-4 justify-between items-center px-4 relative min-h-[90px]"></div>
+        </div>
+
+        <!-- Core Incident Command Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch select-none h-auto">
+          
+          <!-- LEFT: Blast Radius visualization -->
+          <div class="lg:col-span-4 glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-6 shadow-panel justify-between min-h-[340px]">
+            <h3 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Visual Blast Radius Map</h3>
+            
+            <div class="h-64 border border-slate-100 dark:border-slate-800/40 bg-slate-50/10 dark:bg-slate-900/10 rounded-2xl flex items-center justify-center p-2 overflow-hidden relative">
+              <div id="blast-radius-svg" class="w-full h-full flex items-center justify-center"></div>
+            </div>
+            
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed font-medium">
+              Concentric rings demonstrate predicted propagation blast wave. Light-cyan paths visualize dynamic network rerouting vectors executed by our AI optimizer.
+            </p>
+          </div>
+
+          <!-- CENTER: SELF-HEALING AI BRAIN CARD -->
+          <div class="lg:col-span-4 glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-5 shadow-panel justify-between min-h-[340px]">
+            <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Self-Healing AI Brain</h4>
+            
+            <div class="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mx-auto my-2 animate-cyber-pulse shrink-0">
+              <i data-lucide="brain-circuit" class="w-6 h-6"></i>
+            </div>
+
+            <div class="flex flex-col gap-3.5">
+              <div class="flex flex-col">
+                <span class="text-[8px] text-slate-400 uppercase font-mono font-bold">CURRENT AI ACTION DIRECTIVE</span>
+                <span id="brainActionVal" class="text-xs font-bold text-slate-800 dark:text-white mt-0.5">Scanning Telemetry</span>
+              </div>
+              
+              <div class="flex flex-col">
+                <span class="text-[8px] text-slate-400 uppercase font-mono font-bold">NEXT DIRECTIVE PIPELINE</span>
+                <span id="brainNextVal" class="text-xs font-bold text-primary dark:text-cyan-400 mt-0.5">Analyze Trends</span>
+              </div>
+
+              <div class="flex flex-col">
+                <span class="text-[8px] text-slate-400 uppercase font-mono font-bold">DECISION ENGINE REASONING</span>
+                <span id="brainReasoningVal" class="text-[10px] text-slate-500 leading-relaxed mt-0.5">Continuous background monitoring for thermal and network drifts.</span>
+              </div>
+
+              <div class="flex justify-between border-t border-slate-100 dark:border-slate-850 pt-3">
+                <span class="text-[9px] text-slate-400 uppercase font-bold">Engine Confidence</span>
+                <span id="brainConfidenceVal" class="text-xs font-bold text-emerald-500 font-mono">99.2%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- NEW RIGHT: AI RECOMMENDATION ENGINE PRIORITIES -->
+          <div class="lg:col-span-4 glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-4 shadow-panel justify-between min-h-[340px]">
+            <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">AI Remediation Recommendation Priorities</h4>
+            
+            <div id="p3-recommendation-list" class="flex flex-col gap-3">
+              <!-- Recommendations appended live -->
+            </div>
+            
+            <div class="h-[1px] bg-slate-100 dark:bg-slate-800"></div>
+            <div class="flex items-center justify-between">
+              <span class="text-[9px] text-slate-400 uppercase font-bold">Recovery Efficacy</span>
+              <div class="relative w-14 h-14 flex items-center justify-center shrink-0">
+                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(148, 163, 184, 0.08)" stroke-width="8" />
+                  <circle id="p3EfficacyRadialRing" cx="60" cy="60" r="54" fill="none" stroke="#10B981" stroke-width="10" stroke-dashoffset="339.29" stroke-dasharray="339.29" stroke-linecap="round" class="gauge-ring" />
+                </svg>
+                <span id="p3EfficacyValText" class="absolute text-[10px] font-extrabold font-mono text-slate-800 dark:text-slate-200">0%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- NEW: RECOVERY VALIDATION & AUDIT HISTORY -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-stretch select-none h-auto">
+          <!-- Recovery Validation Checks -->
+          <div class="xl:col-span-4 glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col justify-between shadow-panel gap-4">
+            <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Recovery Validation Checks</h4>
+            
+            <div class="flex flex-col gap-3 font-mono text-[10px]">
+              <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
+                <span class="text-slate-400 uppercase font-bold">Node Stability</span>
+                <span id="p3ValNode" class="font-bold text-slate-400">UNAVAILABLE</span>
+              </div>
+              <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
+                <span class="text-slate-400 uppercase font-bold">Traffic Density</span>
+                <span id="p3ValTraffic" class="font-bold text-slate-400">UNAVAILABLE</span>
+              </div>
+              <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
+                <span class="text-slate-400 uppercase font-bold">Thermal Core state</span>
+                <span id="p3ValTemp" class="font-bold text-slate-400">UNAVAILABLE</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400 uppercase font-bold">SLA Health Validation</span>
+                <span id="p3ValStatus" class="font-bold text-slate-400">UNAVAILABLE</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Audit Trail & Event History logs -->
+          <div class="xl:col-span-8 glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col justify-between shadow-panel gap-4">
+            <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Platform Audit Trail & Event History</h4>
+            
+            <div class="flex flex-col gap-3 font-mono text-[9px]">
+              <div class="flex items-center justify-between border-b border-slate-150 dark:border-slate-850 pb-2 gap-8 text-wrap-safety">
+                <span class="text-slate-450">[13:58:22] ACTION: Workload Migrated</span>
+                <span class="text-slate-500">ACTOR: AI Guardian Agent v2.4</span>
+                <span class="text-slate-400 text-right">REASON: SLA breach mitigation</span>
+              </div>
+              <div class="flex items-center justify-between border-b border-slate-150 dark:border-slate-850 pb-2 gap-8 text-wrap-safety">
+                <span class="text-slate-450">[13:58:24] ACTION: Node-08 isolated</span>
+                <span class="text-slate-500">ACTOR: AI Remediation Engine</span>
+                <span class="text-slate-400 text-right">REASON: Prevent thermal propagation</span>
+              </div>
+              <div class="flex items-center justify-between gap-8 text-wrap-safety">
+                <span class="text-slate-450">[13:58:29] ACTION: Traffic routed Spare-11</span>
+                <span class="text-slate-500">ACTOR: AI Routing Optimizer</span>
+                <span class="text-slate-400 text-right">REASON: Restoration validation tests</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- COST IMPACT ANALYSIS DASHBOARD -->
+        <div class="glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-4 shadow-panel select-none h-auto">
+          <h4 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Remediation Cost & Resource Impact</h4>
+          
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center font-mono">
+            <div class="flex flex-col gap-1 p-3.5 border border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-900/10 rounded-2xl">
+              <span class="text-[9px] text-slate-400 font-extrabold uppercase">Potential Financial Damage</span>
+              <span id="p3LossPotentialText" data-current="0" class="text-xl font-extrabold text-red-500">$0</span>
+            </div>
+            
+            <div class="flex flex-col gap-1 p-3.5 border border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-900/10 rounded-2xl">
+              <span class="text-[9px] text-slate-400 font-extrabold uppercase">Recovered SLA Value</span>
+              <span id="p3LossSavedText" data-current="0" class="text-xl font-extrabold text-emerald-500">$0</span>
+            </div>
+
+            <div class="flex flex-col gap-1 p-3.5 border border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-900/10 rounded-2xl">
+              <span class="text-[9px] text-slate-400 font-extrabold uppercase">Downtime Prevented</span>
+              <span id="p3DowntimeAvoidedText" class="text-xl font-extrabold text-primary dark:text-indigo-400">0.0 Hours</span>
+            </div>
+
+            <div class="flex flex-col gap-1 p-3.5 border border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-900/10 rounded-2xl">
+              <span class="text-[9px] text-slate-400 font-extrabold uppercase">Infrastructure Nodes Preserved</span>
+              <span id="p3PercentSavedText" class="text-xl font-extrabold text-accent">100%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Stabilization progress rings -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch select-none h-auto">
+          <div class="lg:col-span-8 glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-5 shadow-panel items-center justify-center min-h-[340px]">
+            <h3 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase text-center w-full">Remediation Stabilization Progress</h3>
+
+            <div class="relative w-40 h-40 flex items-center justify-center select-none my-4">
+              <svg class="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
+                <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(148, 163, 184, 0.08)" stroke-width="8" />
+                <circle id="p3RadialRecoveryRing" cx="80" cy="80" r="70" fill="none" stroke="#06B6D4" stroke-width="9" stroke-dasharray="439.8" stroke-dashoffset="439.8" stroke-linecap="round" class="gauge-ring" />
+              </svg>
+              <div class="absolute flex flex-col items-center justify-center">
+                <span id="p3StabilizationText" data-current="0" class="text-4xl font-extrabold text-slate-800 dark:text-white font-mono font-mono">0%</span>
+                <span class="text-[9px] text-slate-400 font-extrabold tracking-wider uppercase font-mono mt-0.5">STABILIZATION</span>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1.5 items-center text-center">
+              <span class="text-xs font-bold text-slate-700 dark:text-slate-300">Autonomic Isolation Remediation</span>
+              <span class="text-[10px] text-slate-400 dark:text-slate-500 font-semibold font-mono">CONTAINING CASCADE CHANNELS</span>
+            </div>
+          </div>
+
+          <div class="lg:col-span-4 glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-5 shadow-panel justify-between">
+            <h3 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Active Mitigation Directives</h3>
+
+            <!-- Action lists -->
+            <div class="flex flex-col gap-3.5 select-none">
+              <div id="checkMigrate" class="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-300">
+                <div class="flex items-center gap-3">
+                  <div class="action-check flex items-center justify-center">
+                    <i data-lucide="circle" class="w-4.5 h-4.5 text-slate-400"></i>
+                  </div>
+                  <div class="flex flex-col">
+                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300">Workload Migration</span>
+                    <span class="text-[9px] text-slate-400">Replicating active DB memory replica</span>
+                  </div>
+                </div>
+                <span class="action-badge text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 dark:bg-slate-800 text-slate-400 uppercase">PENDING</span>
+              </div>
+
+              <div id="checkIsolate" class="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-300">
+                <div class="flex items-center gap-3">
+                  <div class="action-check flex items-center justify-center">
+                    <i data-lucide="circle" class="w-4.5 h-4.5 text-slate-400"></i>
+                  </div>
+                  <div class="flex flex-col">
+                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300">Enclave Isolation</span>
+                    <span class="text-[9px] text-slate-400">Disconnecting faulty network segments</span>
+                  </div>
+                </div>
+                <span class="action-badge text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 dark:bg-slate-800 text-slate-400 uppercase">PENDING</span>
+              </div>
+
+              <div id="checkReroute" class="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-300">
+                <div class="flex items-center gap-3">
+                  <div class="action-check flex items-center justify-center">
+                    <i data-lucide="circle" class="w-4.5 h-4.5 text-slate-400"></i>
+                  </div>
+                  <div class="flex flex-col">
+                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300">Traffic Reroute</span>
+                    <span class="text-[9px] text-slate-400">Force redirection to standby Node-11</span>
+                  </div>
+                </div>
+                <span class="action-badge text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 dark:bg-slate-800 text-slate-400 uppercase">PENDING</span>
+              </div>
+
+              <div id="checkCooling" class="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-300">
+                <div class="flex items-center gap-3">
+                  <div class="action-check flex items-center justify-center">
+                    <i data-lucide="circle" class="w-4.5 h-4.5 text-slate-400"></i>
+                  </div>
+                  <div class="flex flex-col">
+                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300">Cooling Boost Surge</span>
+                    <span class="text-[9px] text-slate-400">Emergency auxiliary fan speed bump</span>
+                  </div>
+                </div>
+                <span class="action-badge text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 dark:bg-slate-800 text-slate-400 uppercase">PENDING</span>
+              </div>
+            </div>
+
+            <div class="h-[1px] bg-slate-100 dark:bg-slate-800/60 my-2"></div>
+
+            <!-- Quick manual overrides buttons -->
+            <div class="flex flex-col gap-3.5">
+              <span class="text-[9px] text-slate-400 font-extrabold font-mono uppercase">Manual Intervention overrides</span>
+              <div class="grid grid-cols-2 gap-3.5 font-mono">
+                <button data-action="migrate" class="mitigation-card p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-cyan-500/40 hover:bg-cyan-500/[0.01] flex flex-col items-center gap-2 cursor-pointer transition-all duration-300 text-center">
+                  <i data-lucide="shuffle" class="w-4 h-4 text-cyan-400"></i>
+                  <span class="text-[10px] font-extrabold uppercase text-slate-700 dark:text-slate-300">FORCE MIGRATE</span>
+                </button>
+                
+                <button data-action="isolate" class="mitigation-card p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-danger/45 hover:bg-danger/[0.01] flex flex-col items-center gap-2 cursor-pointer transition-all duration-300 text-center">
+                  <i data-lucide="unplug" class="w-4 h-4 text-red-500"></i>
+                  <span class="text-[10px] font-extrabold uppercase text-slate-700 dark:text-slate-300">FORCE ISOLATE</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- EXECUTIVE SUMMARY REPORT PANEL -->
+        <div class="glass-panel p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-5 border border-slate-200/60 dark:border-slate-800/60 shadow-panel select-none h-auto">
+          <h3 class="text-xs font-bold tracking-widest font-mono text-slate-400 dark:text-slate-500 uppercase">Executive Summary Resolution</h3>
+          
+          <div class="flex flex-wrap items-center justify-between gap-6 border-slate-100 dark:border-slate-850 p-4 border rounded-xl bg-slate-50/20 dark:bg-slate-900/10">
+            <div class="flex items-center gap-4">
+              <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0"><i data-lucide="award" class="w-5 h-5"></i></div>
+              <div class="flex flex-col text-left">
+                <span class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase font-mono">INCIDENT RESOLVED SUCCESSFULLY</span>
+                <span class="text-[10px] text-slate-400 font-medium">Autonomic AI Optimizer bypassed manual operations to restore health.</span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-8 text-right font-mono text-xs">
+              <div class="flex flex-col">
+                <span class="text-[9px] text-slate-400 uppercase">STABILIZATION TIME</span>
+                <span class="text-xs font-extrabold text-slate-800 dark:text-slate-200">28 Seconds</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-[9px] text-slate-400 uppercase">AFFECTED SYSTEMS</span>
+                <span id="execNodeCountText" class="text-xs font-extrabold text-slate-800 dark:text-slate-200">Telemetry stable</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-[9px] text-slate-400 uppercase">TOTAL LOSS PREVENTED</span>
+                <span id="execSavedCostText" class="text-xs font-extrabold text-emerald-500">$0.00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SYSTEM RECOVERED SCREEN OVERLAY SUCCESS CELEBRATION -->
+      <div id="system-recovered-overlay" class="absolute inset-0 bg-[#090D1A]/95 backdrop-blur-lg flex flex-col items-center justify-center gap-6 z-40 transition-all duration-700 opacity-0 pointer-events-none p-8 select-none">
+        <div class="relative w-44 h-44 flex items-center justify-center">
+          <div class="absolute inset-0 border-2 border-emerald-500/20 rounded-full animate-ping" style="animation-duration: 3s;"></div>
+          <div class="absolute w-36 h-36 border-2 border-emerald-500/40 rounded-full animate-pulse"></div>
+          
+          <div class="w-24 h-24 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shadow-glowGreen">
+            <i data-lucide="check" class="w-12 h-12 text-emerald-500"></i>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2.5 items-center text-center">
+          <h2 class="text-3xl font-extrabold tracking-widest font-mono text-emerald-500 uppercase animate-text-glow">SYSTEM RECOVERED</h2>
+          <p class="text-sm text-slate-400 font-medium max-w-md leading-relaxed">
+            Autonomous AI optimizer successfully isolated Node-08 thermal anomaly, migrated live workload to standby, and re-routed user requests. SLA fully preserved.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-8 mt-4 p-5 rounded-2xl border border-slate-800 bg-slate-900/50 min-w-[320px] justify-between font-mono">
+          <div class="flex flex-col">
+            <span class="text-[9px] text-slate-500 font-extrabold uppercase">Cluster Health</span>
+            <span class="text-base font-extrabold text-emerald-500">100.00%</span>
+          </div>
+          <div class="h-6 w-[1px] bg-slate-800"></div>
+          <div class="flex flex-col">
+            <span class="text-[9px] text-slate-500 font-extrabold uppercase">AI Threat Risk</span>
+            <span class="text-base font-extrabold text-emerald-500">0.02%</span>
+          </div>
+          <div class="h-6 w-[1px] bg-slate-800"></div>
+          <div class="flex flex-col">
+            <span class="text-[9px] text-slate-500 font-extrabold uppercase">Nodes Stable</span>
+            <span class="text-base font-extrabold text-slate-200">12 / 12</span>
+          </div>
+        </div>
+        
+        <p class="text-[10px] text-slate-600 font-semibold tracking-wider uppercase mt-4">
+          RE-ENTERING HIGH-SCAN SCANNING ENVELOPE SECURE
+        </p>
+      </div>
+
+    </div>
+
+    <!-- NEW: FLOATING PRESENTATION QUICK DEMO CONTROL PANEL (Collapsible, Available on Page 2 & Page 3, hidden on Page 1) -->
+    <div id="demo-control-room-panel" class="hidden fixed bottom-6 right-6 z-40 bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border border-slate-250 dark:border-slate-800 p-4 rounded-2xl w-80 select-none floating-control-panel transition-all duration-300 hover:scale-101 shrink-0">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-850 pb-2 mb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sliders" class="w-4 h-4 text-primary dark:text-cyan-400"></i>
+          <span class="text-[10px] font-extrabold tracking-widest font-mono text-slate-700 dark:text-slate-300 uppercase">Demo Control Room</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <button id="btnPanelCollapseToggle" class="w-5 h-5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+            <i data-lucide="chevron-down" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 text-center font-mono">
+        <button id="floatTriggerAnomaly" class="p-2.5 border border-slate-100 dark:border-slate-800 hover:border-amber-500/50 hover:bg-amber-500/[0.02] rounded-xl flex flex-col items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-200 transition-colors">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-500"></i>
+          <span class="text-[9px] font-bold">1. SPARK ANOMALY</span>
+        </button>
+        
+        <button id="floatTriggerCascade" class="p-2.5 border border-slate-100 dark:border-slate-800 hover:border-red-500/50 hover:bg-red-500/[0.02] rounded-xl flex flex-col items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-200 transition-colors">
+          <i data-lucide="git-branch" class="w-4 h-4 text-red-500"></i>
+          <span class="text-[9px] font-bold">2. LOAD CASCADE</span>
+        </button>
+
+        <button id="floatTriggerRecovery" class="p-2.5 border border-slate-100 dark:border-slate-800 hover:border-cyan-500/50 hover:bg-cyan-500/[0.02] rounded-xl flex flex-col items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-200 transition-colors">
+          <i data-lucide="sparkles" class="w-4 h-4 text-cyan-400"></i>
+          <span class="text-[9px] font-bold">3. AUTO RECOV</span>
+        </button>
+        
+        <button id="floatTriggerReset" class="p-2.5 border border-slate-100 dark:border-slate-800 hover:border-slate-400/50 hover:bg-slate-400/[0.02] rounded-xl flex flex-col items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-200 transition-colors">
+          <i data-lucide="rotate-ccw" class="w-4 h-4 text-slate-400"></i>
+          <span class="text-[9px] font-bold">4. RESET CLUSTER</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- SLIDE-OUT NODE DETAIL DRAWER PANEL (From Right Side) -->
+    <div id="node-detail-drawer" class="fixed top-0 right-0 bottom-0 w-[380px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-l border-slate-200 dark:border-slate-800/80 p-6 z-50 flex flex-col gap-6 drawer-container drawer-hidden select-none shrink-0">
+      <div class="flex items-center justify-between border-b border-slate-250 dark:border-slate-800 pb-4">
+        <div class="flex flex-col">
+          <h3 id="drawerNodeName" class="text-sm font-extrabold tracking-wider font-mono uppercase text-slate-850 dark:text-white">DB-CLUSTER-08</h3>
+          <span id="drawerNodeRole" class="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Primary DB node</span>
+        </div>
+        <button id="btnDrawerClose" class="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer">
+          <i data-lucide="x" class="w-4.5 h-4.5"></i>
+        </button>
+      </div>
+
+      <div class="flex flex-col gap-6 flex-1 overflow-y-auto pr-1">
+        <div class="flex items-center justify-between p-3.5 border border-slate-100 dark:border-slate-850 bg-slate-50/20 dark:bg-slate-950/10 rounded-2xl">
+          <span class="text-[10px] text-slate-400 font-extrabold font-mono uppercase">Enclave State</span>
+          <span id="drawerStatusBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">HEALTHY</span>
+        </div>
+
+        <div class="flex flex-col gap-2.5">
+          <span class="text-[9px] text-slate-400 font-extrabold font-mono uppercase">7-Day Telemetry Trend</span>
+          <div id="drawerTrendSparkline" class="h-20 border border-slate-150 dark:border-slate-850 bg-slate-50/20 dark:bg-slate-950/10 rounded-2xl p-3 flex items-center justify-center overflow-hidden"></div>
+        </div>
+
+        <!-- Comprehensive Node Telemetry Parameter Bars -->
+        <div class="flex flex-col gap-5">
+          <span class="text-[9px] text-slate-400 font-extrabold font-mono uppercase">Node metrics readouts</span>
+          
+          <div class="flex flex-col gap-1.5">
+            <div class="flex justify-between text-[10px] font-mono text-slate-500 font-bold">
+              <span>CPU COMPUTE LOAD</span>
+              <span id="drCpuText">45%</span>
+            </div>
+            <div class="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div id="drCpuBar" class="h-full bg-primary rounded-full transition-all duration-500" style="width: 45%"></div>
+            </div>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <div class="flex justify-between text-[10px] font-mono text-slate-500 font-bold">
+              <span>MEMORY SPACE</span>
+              <span id="drRamText">62%</span>
+            </div>
+            <div class="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div id="drRamBar" class="h-full bg-secondary rounded-full transition-all duration-500" style="width: 62%"></div>
+            </div>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <div class="flex justify-between text-[10px] font-mono text-slate-500 font-bold">
+              <span>THERMAL HEAT CORE</span>
+              <span id="drTempText">62°C</span>
+            </div>
+            <div class="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div id="drTempBar" class="h-full bg-accent rounded-full transition-all duration-500" style="width: 62%"></div>
+            </div>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <div class="flex justify-between text-[10px] font-mono text-slate-500 font-bold">
+              <span>POWER LOAD CAPACITY</span>
+              <span id="drPowerText">15.6 kW</span>
+            </div>
+            <div class="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div id="drPowerBar" class="h-full bg-primary rounded-full transition-all duration-500" style="width: 62%"></div>
+            </div>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <div class="flex justify-between text-[10px] font-mono text-slate-500 font-bold">
+              <span>NETWORK PACKET LOSS</span>
+              <span id="drLossText">0.01%</span>
+            </div>
+            <div class="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div id="drLossBar" class="h-full bg-danger rounded-full transition-all duration-500" style="width: 1%"></div>
+            </div>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <div class="flex justify-between text-[10px] font-mono text-slate-500 font-bold">
+              <span>CALCULATED OUTAGE RISK</span>
+              <span id="drRiskText">4%</span>
+            </div>
+            <div class="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div id="drRiskBar" class="h-full bg-accent rounded-full transition-all duration-500" style="width: 4%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+  
+  <!-- Main Application Script -->
+  <script src="app.js"></script>
+</body>
 </html>

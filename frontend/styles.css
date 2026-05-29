@@ -1,0 +1,378 @@
+/* SYNAPSE-ARC - Premium Anomaly Management platform stylesheet */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  --primary: #4F46E5;
+  --secondary: #9333EA;
+  --accent: #06B6D4;
+  --dark: #0F172A;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --glass-light: rgba(255, 255, 255, 0.72);
+  --glass-dark: rgba(15, 23, 42, 0.65);
+  --border-light: rgba(79, 70, 229, 0.12);
+  --border-dark: rgba(147, 51, 234, 0.2);
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  transition: background-color 0.4s ease, color 0.4s ease;
+  overflow-y: auto; /* Dynamic content-based scroll */
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(79, 70, 229, 0.2);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(79, 70, 229, 0.4);
+}
+
+/* Glassmorphism Styles */
+.glass-panel {
+  backdrop-filter: blur(24px) saturate(120%);
+  -webkit-backdrop-filter: blur(24px) saturate(120%);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.dark .glass-panel {
+  border: 1px solid var(--border-dark);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-panel:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px 0 rgba(79, 70, 229, 0.08);
+}
+
+.dark .glass-panel:hover {
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+  border-color: rgba(147, 51, 234, 0.35);
+}
+
+/* Text Wrapping & Safety */
+.text-wrap-safety {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* Active Glowing Cards */
+.glow-active-card {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 20px rgba(79, 70, 229, 0.25) !important;
+}
+
+.dark .glow-active-card {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 25px rgba(6, 182, 212, 0.3) !important;
+}
+
+/* Cyber grid background */
+.cyber-grid {
+  background-image: 
+    linear-gradient(rgba(79, 70, 229, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 70, 229, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.dark .cyber-grid {
+  background-image: 
+    linear-gradient(rgba(147, 51, 234, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(147, 51, 234, 0.04) 1px, transparent 1px);
+}
+
+/* Ambient Radial Glow */
+.ambient-glow {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: plus-lighter;
+  transition: opacity 0.5s ease;
+}
+
+.dark .ambient-glow {
+  opacity: 0.25;
+}
+
+/* Floating Particles Container */
+.cyber-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(79, 70, 229, 0.3) 0%, transparent 70%);
+  animation: float-drift infinite ease-in-out;
+}
+
+.dark .particle {
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, transparent 70%);
+}
+
+/* Keyframe Animations */
+@keyframes float-drift {
+  0%, 100% {
+    transform: translateY(0) translateX(0) scale(1);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-80px) translateX(40px) scale(1.3);
+    opacity: 0.5;
+  }
+}
+
+@keyframes cyber-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+    box-shadow: 0 0 10px rgba(79, 70, 229, 0.2);
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(79, 70, 229, 0.5);
+  }
+}
+
+@keyframes text-glow {
+  0%, 100% {
+    text-shadow: 0 0 8px rgba(6, 182, 212, 0.2);
+  }
+  50% {
+    text-shadow: 0 0 15px rgba(6, 182, 212, 0.6);
+  }
+}
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+@keyframes grid-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 40px 40px;
+  }
+}
+
+@keyframes warning-pulse {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(239, 68, 68, 0.5);
+    border-color: rgba(239, 68, 68, 0.6);
+  }
+}
+
+@keyframes slide-in-drawer {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Utility Animations */
+.animate-cyber-pulse {
+  animation: cyber-pulse 3s infinite ease-in-out;
+}
+
+.animate-text-glow {
+  animation: text-glow 2s infinite ease-in-out;
+}
+
+.flow-line {
+  stroke-dasharray: 8, 4;
+  animation: dash-flow 1.5s infinite linear;
+}
+
+.flow-line-fast {
+  stroke-dasharray: 6, 3;
+  animation: dash-flow 0.8s infinite linear;
+}
+
+.grid-anim {
+  animation: grid-drift 20s infinite linear;
+}
+
+.warning-card-pulse {
+  animation: warning-pulse 1.8s infinite ease-in-out;
+}
+
+/* Page Transition Styling */
+.page-view {
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.page-view.hidden-view {
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+}
+
+/* Custom Checkbox Toggle */
+.toggle-dot {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+input:checked ~ .toggle-dot {
+  transform: translateX(100%);
+}
+
+/* Metric Ticker Shimmer */
+.ticker-value {
+  transition: color 0.3s ease;
+}
+
+/* Node Styling */
+.topo-node {
+  transition: fill 0.4s ease, stroke 0.4s ease, filter 0.4s ease;
+}
+.topo-edge {
+  transition: stroke 0.4s ease, stroke-width 0.4s ease, opacity 0.4s ease;
+}
+
+/* Custom Radar & Gauge Indicators */
+.gauge-ring {
+  transition: stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1), stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Side Drawer styling */
+.drawer-container {
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.3);
+}
+
+.drawer-container.drawer-hidden {
+  transform: translateX(100%);
+}
+
+/* Collapsible Demo control panel */
+.floating-control-panel {
+  box-shadow: 0 10px 40px -10px rgba(79, 70, 229, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dark .floating-control-panel {
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6);
+}
+
+.floating-control-panel.panel-collapsed {
+  height: 48px;
+  width: 180px;
+  overflow: hidden;
+}
+
+/* Client side Error boundary */
+.error-boundary-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 13, 26, 0.95);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(16px);
+  transition: opacity 0.4s ease;
+}
+
+/* PREMIUM LIGHT MODE CONTRAST & TYPOGRAPHY OVERRIDES */
+html:not(.dark) {
+  color: #1E293B !important;
+}
+
+html:not(.dark) .text-slate-400,
+html:not(.dark) .text-slate-500 {
+  color: #475569 !important; /* High-contrast slate-600 */
+  font-weight: 600 !important; /* Enhanced readability bolding */
+}
+
+html:not(.dark) .text-slate-600 {
+  color: #1E293B !important; /* High-contrast slate-800 */
+  font-weight: 700 !important;
+}
+
+/* Enhancing status texts & badges inside light mode for WCAG AAA accessibility */
+html:not(.dark) .text-emerald-500,
+html:not(.dark) .text-success {
+  color: #047857 !important; /* emerald-700 */
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .bg-emerald-500\/10 {
+  background-color: rgba(4, 120, 87, 0.1) !important;
+  border-color: rgba(4, 120, 87, 0.22) !important;
+}
+
+html:not(.dark) .text-amber-500,
+html:not(.dark) .text-warning {
+  color: #B45309 !important; /* amber-700 */
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .bg-amber-500\/10 {
+  background-color: rgba(180, 83, 9, 0.1) !important;
+  border-color: rgba(180, 83, 9, 0.22) !important;
+}
+
+html:not(.dark) .text-red-500,
+html:not(.dark) .text-danger {
+  color: #B91C1C !important; /* red-700 */
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .bg-red-500\/10 {
+  background-color: rgba(185, 28, 28, 0.1) !important;
+  border-color: rgba(185, 28, 28, 0.22) !important;
+}
+
+html:not(.dark) .text-primary {
+  color: #4338CA !important; /* indigo-700 */
+  font-weight: 700 !important;
+}
+
+html:not(.dark) .text-accent {
+  color: #0E7490 !important; /* cyan-700 */
+  font-weight: 700 !important;
+}
+
+/* Force active state in scrubbing nodes to pop on light mode background */
+html:not(.dark) .replay-timeline-node.glow-active-card * {
+  color: #0E7490 !important;
+  font-weight: 800 !important;
+}
+
