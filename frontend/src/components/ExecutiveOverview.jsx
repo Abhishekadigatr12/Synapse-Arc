@@ -40,12 +40,6 @@ function ExecutiveOverview({ metrics, currentStageIndex, onLaunchMonitor }) {
             >
               Launch Mission Control
             </button>
-            <button 
-              onClick={onLaunchMonitor}
-              className="px-6 py-3.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs font-extrabold tracking-wider uppercase hover:bg-slate-100 dark:hover:bg-slate-800/40 transition-all duration-300 cursor-pointer"
-            >
-              Watch Live Demo
-            </button>
           </div>
         </div>
 

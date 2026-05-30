@@ -5,6 +5,9 @@ from typing import Any
 
 import joblib
 import pandas as pd
+from sklearn.ensemble import IsolationForest
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 _MODEL = None
 _MODEL_PATH = None
@@ -36,6 +39,65 @@ def load_model(path: str | Path | None = None):
         _MODEL_PATH = str(target)
         _MODEL_MTIME = current_mtime
     return _MODEL
+
+
+def train_model_from_csv() -> bool:
+    """Read system_metrics.csv and train / retrain the IsolationForest model.
+
+    Uses features: cpu, memory, disk, network, process_load.
+    temp is intentionally excluded because Windows psutil does not report it.
+    Returns True on success, False on any failure.
+    """
+    from ..monitoring.collector import SYSTEM_DATASET
+
+    if not SYSTEM_DATASET.exists():
+        print('[model_server] CSV not found — skipping training')
+        return False
+
+    try:
+        df = pd.read_csv(SYSTEM_DATASET)
+
+        # Derive process_load if column missing (old CSV schema)
+        if 'process_load' not in df.columns:
+            df['process_load'] = (df['cpu'] * 0.88).round(1) if 'cpu' in df.columns else 0.0
+
+        features = ['cpu', 'memory', 'disk', 'network', 'process_load']
+        missing = [f for f in features if f not in df.columns]
+        if missing:
+            print(f'[model_server] Missing columns {missing} — skipping training')
+            return False
+
+        X = df[features].apply(pd.to_numeric, errors='coerce').fillna(0)
+        print(f'[model_server] Training on {len(X)} rows, features={features}')
+
+        # Ensure at least 20 samples so IsolationForest fits properly
+        if len(X) < 20:
+            repeats = max(1, 20 // len(X)) + 1
+            X = pd.concat([X] * repeats, ignore_index=True)
+
+        pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('clf', IsolationForest(n_estimators=100, contamination=0.08, random_state=42)),
+        ])
+        pipeline.fit(X)
+
+        target = default_model_path()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(pipeline, str(target))
+        print(f'[model_server] Model saved to {target}')
+
+        # Bust the in-memory model cache
+        global _MODEL, _MODEL_PATH, _MODEL_MTIME
+        _MODEL = None
+        _MODEL_PATH = None
+        _MODEL_MTIME = None
+        load_model()
+        return True
+
+    except Exception as exc:
+        print(f'[model_server] Training failed: {exc}')
+        return False
+
 
 
 def predict(payload: Any):

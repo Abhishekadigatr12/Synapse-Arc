@@ -304,6 +304,7 @@ input:checked ~ .toggle-dot {
   inset: 0;
   background: rgba(9, 13, 26, 0.95);
   z-index: 9999;
+  pointer-events: none;
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(16px);
@@ -375,4 +376,3 @@ html:not(.dark) .replay-timeline-node.glow-active-card * {
   color: #0E7490 !important;
   font-weight: 800 !important;
 }
-

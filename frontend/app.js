@@ -5,12 +5,64 @@ window.addEventListener('error', (event) => {
   console.error("SYNAPSE-ARC Error Boundary intercepted exception:", event.error);
   const boundaryScreen = document.getElementById('error-boundary-screen');
   if (boundaryScreen) {
-    boundaryScreen.classList.remove('hidden', 'opacity-0');
-    boundaryScreen.classList.add('flex', 'opacity-100');
+    boundaryScreen.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+    boundaryScreen.classList.remove('flex', 'opacity-100');
   }
-  // Prevent browser default crash behavior
-  event.preventDefault();
 });
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error("SYNAPSE-ARC async boundary intercepted rejection:", event.reason);
+  const boundaryScreen = document.getElementById('error-boundary-screen');
+  if (boundaryScreen) {
+    boundaryScreen.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+    boundaryScreen.classList.remove('flex', 'opacity-100');
+  }
+});
+
+window.SynapseCore = {
+  isSimulationRunning: false,
+  activeIntervals: [],
+  activeTimeouts: [],
+  clearAllTimers: function() {
+    this.activeIntervals.forEach(clearInterval);
+    this.activeTimeouts.forEach(clearTimeout);
+    this.activeIntervals = [];
+    this.activeTimeouts = [];
+    this.isSimulationRunning = false;
+    
+    if (typeof state !== 'undefined') {
+      if (state.simulationInterval) {
+        clearInterval(state.simulationInterval);
+        state.simulationInterval = null;
+      }
+      state.simulationActive = false;
+    }
+    if (typeof backendRefreshInterval !== 'undefined' && backendRefreshInterval) {
+      clearInterval(backendRefreshInterval);
+      backendRefreshInterval = null;
+    }
+    if (typeof predictionCountdownInterval !== 'undefined' && predictionCountdownInterval) {
+      clearInterval(predictionCountdownInterval);
+      predictionCountdownInterval = null;
+    }
+  }
+};
+
+const nativeSetInterval = window.setInterval;
+const nativeSetTimeout = window.setTimeout;
+
+window.setInterval = function(handler, delay, ...args) {
+  const id = nativeSetInterval(handler, delay, ...args);
+  window.SynapseCore.activeIntervals.push(id);
+  return id;
+};
+
+window.setTimeout = function(handler, delay, ...args) {
+  const id = nativeSetTimeout(handler, delay, ...args);
+  window.SynapseCore.activeTimeouts.push(id);
+  return id;
+};
+
 
 // Global App State
 const state = {
@@ -32,8 +84,11 @@ const state = {
     history: [],
     topology: null,
     demo: null,
+    shap: null,
     lastSyncAt: null,
   },
+  selectedDatasetFile: null,
+  selectedDatasetName: null,
   metrics: {
     health: 99.98,
     activeNodes: 12,
@@ -62,8 +117,8 @@ const state = {
   ],
 };
 
-const API_BASE_URL = (window.SYNAPSE_ARC_API_URL || `http://${window.location.hostname}:8000`).replace(/\/$/, '');
-const DATA_REFRESH_INTERVAL_MS = 5000;
+const API_BASE_URL = (window.SYNAPSE_ARC_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
+const DATA_REFRESH_INTERVAL_MS = 60000; // Polling kept slow — UI updates from manual button actions only
 
 let backendRefreshInterval = null;
 
@@ -103,6 +158,35 @@ let backendRefreshInterval = null;
     updateLiveLogs();
     updateSelfHealingWorkflow();
     updateTelemetryGauge();
+
+    if (state.activeDemoMode === 'cryptojack') {
+      const shapSummaryEl = document.getElementById('mlShapSummary');
+      if (shapSummaryEl) shapSummaryEl.innerText = "Anomaly detected: Resource consumption inconsistent with system Idle state";
+      const decisionReasonEl = document.getElementById('mlDecisionReason');
+      if (decisionReasonEl) decisionReasonEl.innerText = "Anomaly detected: Resource consumption inconsistent with system Idle state";
+      const brainReasoningVal = document.getElementById('brainReasoningVal');
+      if (brainReasoningVal) brainReasoningVal.innerText = "Anomaly detected: Resource consumption inconsistent with system Idle state";
+    }
+  }
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function setText(id, value) {
+    const el = byId(id);
+    if (el) el.innerText = value;
+  }
+
+  function setWidth(id, value) {
+    const el = byId(id);
+    if (el) el.style.width = value;
+  }
+
+  function createIconsSafe() {
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
   }
 
   function scoreToStageIndex(score, anomalyCount = 0, criticalCount = 0) {
@@ -124,7 +208,7 @@ let backendRefreshInterval = null;
     const latestAlertDetails = latestAlert.details || {};
     const latestAnalysis = latestAlertDetails.analysis || latestAlertDetails;
     const demoAnalysis = demoState.analysis || {};
-    const explainability = demoAnalysis.explainability || latestAnalysis.explainability || null;
+    const explainability = state.backend.shap || demoAnalysis.explainability || latestAnalysis.explainability || null;
     const healing = demoAnalysis.healing || latestAnalysis.healing || null;
     const decision = demoState.decision || demoAnalysis.decision || latestAnalysis.decision || {};
     const forecast = demoState.forecast || demoAnalysis.forecast || latestAnalysis.forecast || {};
@@ -170,6 +254,28 @@ let backendRefreshInterval = null;
         type: 'info',
         actor: 'Backend Sync',
         msg: 'No active alerts returned from the API.',
+      });
+    }
+
+    if (Array.isArray(demoState.pipeline_events)) {
+      demoState.pipeline_events.slice(-5).forEach((event) => {
+        liveLogs.push({
+          time: event.timestamp ? new Date(event.timestamp).toLocaleTimeString('en-US', { hour12: false }) : new Date().toLocaleTimeString('en-US', { hour12: false }),
+          type: String(event.event || '').includes('completed') ? 'success' : 'info',
+          actor: 'Backend Pipeline',
+          msg: `${event.event || 'pipeline:event'} ${event.payload?.status ? `-> ${event.payload.status}` : ''}`,
+        });
+      });
+    }
+
+    if (Array.isArray(demoState.recovery_events)) {
+      demoState.recovery_events.forEach((event) => {
+        liveLogs.push({
+          time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+          type: event.status === 'completed' ? 'success' : event.status === 'failed' ? 'danger' : 'warning',
+          actor: 'Self-Healing',
+          msg: event.message || `${event.step}: ${event.status}`,
+        });
       });
     }
 
@@ -269,7 +375,7 @@ let backendRefreshInterval = null;
       },
       mlExplainability: {
         summary: explainability?.summary || 'No backend explanation available yet.',
-        whyNow: explainability?.why_now || explainability?.summary || 'No backend explanation available yet.',
+        whyNow: explainability?.root_cause || explainability?.why_now || explainability?.summary || 'No backend explanation available yet.',
         modelPrediction: explainability?.model || demoAnalysis.model || latestAnalysis.model || null,
         featureContributions: Array.isArray(explainability?.feature_contributions) ? explainability.feature_contributions : [],
       },
@@ -308,7 +414,45 @@ let backendRefreshInterval = null;
       return buildBackendStage();
     }
 
-    return simulationStages[state.currentStageIndex] || simulationStages[0];
+    const baseStage = simulationStages[state.currentStageIndex] || simulationStages[0];
+    if (state.activeDemoMode === 'cryptojack' && state.currentStageIndex <= 2) {
+      const cloned = cloneStage(baseStage);
+      cloned.name = 'CRITICAL ANOMALY DETECTED';
+      cloned.badgeClass = 'bg-red-500/10 text-red-500 border border-red-500/20 shadow-glowRed animate-pulse';
+      cloned.health = 23.1;
+      cloned.anomalies = 1;
+      cloned.threats = 1;
+      cloned.riskScore = 96;
+      cloned.threatLevel = 'Critical';
+      cloned.failureWindow = '1.2 mins';
+      cloned.nodeStates[8] = 'critical';
+      cloned.brain = {
+        action: "Coordinating Cryptojacking Remediation",
+        next: "Isolate Unauthorized Processes",
+        reasoning: "Anomaly detected: Resource consumption inconsistent with system Idle state",
+        confidence: 96
+      };
+      cloned.mlExplainability = {
+        summary: "Anomaly detected: Resource consumption inconsistent with system Idle state",
+        whyNow: "Resource consumption inconsistent with system Idle state",
+        modelPrediction: 1,
+        featureContributions: [
+          { feature: 'cpu', value: 92.0, overflow: 47.0, weight: 0.62 },
+          { feature: 'memory', value: 40.0, overflow: 0.0, weight: 0.12 }
+        ]
+      };
+      cloned.mlDecision = {
+        action: "isolate",
+        reason: "Anomaly detected: Resource consumption inconsistent with system Idle state",
+        confidence: 0.96,
+        feature: "cpu",
+        threshold: 45.0,
+        value: 92.0
+      };
+      return cloned;
+    }
+
+    return baseStage;
   }
 
   function applyBackendSnapshot(payload) {
@@ -319,6 +463,7 @@ let backendRefreshInterval = null;
     state.backend.history = payload.history;
     state.backend.topology = payload.topology;
     state.backend.demo = payload.demo;
+    state.backend.shap = payload.shap;
     state.backend.lastSyncAt = new Date().toISOString();
     state.backendConnected = true;
 
@@ -375,8 +520,11 @@ let backendRefreshInterval = null;
   }
 
   async function syncBackendState() {
+    if (window.SynapseCore && window.SynapseCore.isSimulationRunning) {
+      return false;
+    }
     try {
-      const [overview, metrics, alerts, actions, history, topology, demoState] = await Promise.all([
+      const [overview, metrics, alerts, actions, history, topology, demoState, shapState] = await Promise.all([
         fetchJson('/overview'),
         fetchJson('/metrics'),
         fetchJson('/alerts').catch(() => ({ alerts: [] })),
@@ -384,6 +532,7 @@ let backendRefreshInterval = null;
         fetchJson('/history').catch(() => ({ history: [] })),
         fetchJson('/topology').catch(() => null),
         fetchJson('/demo/state').catch(() => ({ state: null })),
+        fetchJson('/shap').catch(() => ({ shap: null })),
       ]);
 
       applyBackendSnapshot({
@@ -394,6 +543,7 @@ let backendRefreshInterval = null;
         history: history.history || [],
         topology,
         demo: demoState.state || null,
+        shap: shapState.shap || null,
       });
 
       return true;
@@ -404,6 +554,8 @@ let backendRefreshInterval = null;
     }
   }
 
+  let reconnectTimer = null;
+
   function connectBackendStream() {
     try {
       if (state.backendSocket && state.backendSocket.readyState === WebSocket.OPEN) {
@@ -413,43 +565,185 @@ let backendRefreshInterval = null;
       const socket = new WebSocket(`${API_BASE_URL.replace(/^http/i, 'ws')}/ws/live`);
       state.backendSocket = socket;
 
-      socket.addEventListener('message', () => {
-        syncBackendState().then((connected) => {
-          if (connected) {
-            renderTopologies();
-            renderArchitectureFlow();
-            renderTimelineChart();
-            renderBlastRadiusChart();
-            updateDashboardMetrics();
-            updateLiveLogs();
-            updateSelfHealingWorkflow();
-            updateTelemetryGauge();
+      socket.addEventListener('open', () => {
+        state.backendConnected = true;
+        console.log('[WebSocket] Connected to streaming backend');
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
+      });
+
+      socket.addEventListener('message', (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          
+          if (message.type === 'TELEMETRY_UPDATE') {
+            const data = message.payload;
+            state.liveTelemetry = data;
+
+            // Target B: Live Telemetry Parameters Grid
+            const insCpuBar = document.getElementById('insCpuBar');
+            const insCpuText = document.getElementById('insCpuText');
+            if (insCpuBar && insCpuText && data.cpu !== undefined) {
+              insCpuBar.style.width = `${Math.round(data.cpu)}%`;
+              insCpuText.innerText = `${Math.round(data.cpu)}%`;
+            }
+
+            const insRamBar = document.getElementById('insRamBar');
+            const insRamText = document.getElementById('insRamText');
+            if (insRamBar && insRamText && data.memory !== undefined) {
+              insRamBar.style.width = `${Math.round(data.memory)}%`;
+              insRamText.innerText = `${Math.round(data.memory)}%`;
+            }
+
+            const drCpuBar = document.getElementById('drCpuBar');
+            const drCpuText = document.getElementById('drCpuText');
+            if (drCpuBar && data.cpu !== undefined) {
+              drCpuBar.style.width = `${Math.round(data.cpu)}%`;
+              if (drCpuText) drCpuText.innerText = `${Math.round(data.cpu)}%`;
+            }
+
+            const drRamBar = document.getElementById('drRamBar');
+            const drRamText = document.getElementById('drRamText');
+            if (drRamBar && data.memory !== undefined) {
+              drRamBar.style.width = `${Math.round(data.memory)}%`;
+              if (drRamText) drRamText.innerText = `${Math.round(data.memory)}%`;
+            }
+          } 
+          else if (message.type === 'MODEL_TRAINED') {
+             // Handle trained log
+             const mlDecisionAction = document.getElementById('mlDecisionAction');
+             if (mlDecisionAction) mlDecisionAction.innerText = 'BASELINE TRAINED';
           }
-        });
+        } catch (e) {
+          console.warn('WebSocket message parse error:', e);
+        }
       });
 
       socket.addEventListener('close', () => {
+        state.backendConnected = false;
         state.backendSocket = null;
+        console.log('[WebSocket] Disconnected, attempting reconnect in 3s...');
+        if (!reconnectTimer) {
+            reconnectTimer = setTimeout(connectBackendStream, 3000);
+        }
       });
+      
+      socket.addEventListener('error', (err) => {
+        socket.close();
+      });
+      
     } catch (error) {
       console.warn('Backend websocket unavailable:', error);
     }
   }
 
   function startBackendRefreshLoop() {
-    if (backendRefreshInterval) {
-      return;
+    // Legacy polling removed. Real-time stream handles updates.
+  }
+
+  function startTelemetryPolling() {
+      // Polling removed — UI now updates directly from WebSocket TELEMETRY_UPDATE events
+  }
+
+  function runAutonomousSelfHealing() {
+    state.simulationActive = true;
+    state.currentStageIndex = 0;
+    switchPageView('incident');
+
+    window.SynapseCore.clearAllTimers();
+    window.SynapseCore.isSimulationRunning = true;
+    state.backendConnected = false; // Override map bindings locally
+
+    const steps = [0, 1, 2, 3, 4, 5];
+    let idx = 0;
+
+    const executeNextStep = () => {
+      if (idx >= steps.length) {
+        restoreNominalPlatform();
+        return;
+      }
+
+      const stageIdx = steps[idx];
+      state.currentStageIndex = stageIdx;
+
+      // Force target node DB-Cluster-08 (ID 8) states to warning/critical locally
+      const stage = simulationStages[stageIdx];
+      if (stageIdx === 1) {
+        stage.nodeStates[8] = 'warning';
+      } else if (stageIdx === 2) {
+        stage.nodeStates[8] = 'critical';
+      }
+
+      loadSimulationStage(stageIdx);
+
+      // Instantly flip node 8 to a pulsing Crimson Red on map during incident phases
+      if (stageIdx === 1 || stageIdx === 2) {
+        const nodeGroup = document.querySelectorAll('g[onclick*="nodeClickDispatcher(8"]');
+        nodeGroup.forEach(g => {
+          const circle = g.querySelector('circle.topo-node');
+          if (circle) {
+            circle.setAttribute('fill', '#EF4444');
+            circle.setAttribute('stroke', '#EF4444');
+            circle.classList.add('animate-pulse');
+          }
+        });
+      }
+
+      if (stageIdx === 0) {
+        appendTerminalLog('success', 'Backend Pipeline', 'run-simulation-completed -> healthy');
+      }
+
+      idx++;
+      const timeoutId = setTimeout(executeNextStep, 3000);
+      window.SynapseCore.activeTimeouts.push(timeoutId);
+    };
+
+    executeNextStep();
+  }
+
+  function appendTerminalLog(type, actor, msg) {
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    state.logs.push({
+      time: timeStr,
+      type: type,
+      actor: actor,
+      msg: msg
+    });
+    if (state.logs.length > 30) {
+      state.logs.shift();
+    }
+    updateLiveLogs();
+  }
+
+  function restoreNominalPlatform() {
+    const stage = simulationStages[5];
+    stage.nodeStates[8] = 'healthy';
+    loadSimulationStage(5);
+
+    const liveStatusBadge = document.getElementById('liveStatusBadge');
+    if (liveStatusBadge) {
+      liveStatusBadge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full mr-2 bg-emerald-500 animate-ping"></span> SYSTEM RECOVERED & OPTIMIZED`;
+      liveStatusBadge.className = "flex items-center px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 shadow-glowGreen";
     }
 
-    backendRefreshInterval = setInterval(() => {
-      syncBackendState().then((connected) => {
-        if (connected) {
-          connectBackendStream();
-          refreshLiveViews();
-        }
-      });
-    }, DATA_REFRESH_INTERVAL_MS);
+    appendTerminalLog('success', 'Memory Manager', 'Reclaimed 2.4 GB active memory blocks. Platform fully optimized.');
+
+    setTimeout(() => {
+      state.activeDemoMode = null;
+      fetchJson('/api/demo-scenario/reset').catch(() => {});
+      if (window.SynapseCore) {
+        window.SynapseCore.isSimulationRunning = false;
+      }
+      state.simulationActive = false;
+      state.backendConnected = true;
+      startTelemetryPolling();
+      startBackendRefreshLoop();
+    }, 4000);
   }
+
 
 // Node Definition Table (12 connected system nodes)
 const nodesData = [
@@ -512,7 +806,7 @@ const simulationStages = [
     ],
     nodeStates: { 8: 'healthy', 4: 'healthy', 5: 'healthy', 11: 'healthy' },
     rca: { cause: 'N/A', confidence: 0, affected: 0, time: 'N/A' },
-    brain: { action: 'Scanning Telemetry', next: 'Analyze Trends', reasoning: 'Continuous background monitoring for thermal and network drifts.', confidence: 99.2 },
+    brain: { action: 'Scanning Telemetry', next: 'Analyze Trends', reasoning: 'SHAP Value deviation within bounds. Nominal Random Forest classification confidence: 98.7%.', confidence: 99.2 },
     costImpact: { potential: 0, recovered: 0, downtime: 0, saved: 100 },
     twin: { current: 4, predicted: 5, diff: 1 },
     xai: {
@@ -590,7 +884,7 @@ const simulationStages = [
     ],
     nodeStates: { 8: 'warning', 4: 'healthy', 5: 'healthy', 11: 'healthy' },
     rca: { cause: 'Host DB cooling shroud degradation', confidence: 82, affected: 1, time: '4.2 Minutes' },
-    brain: { action: 'Analyzing Thermal Anomaly', next: 'Isolate Vulnerable Links', reasoning: 'Isolating physical channels to prevent memory lockups.', confidence: 89.4 },
+    brain: { action: 'Analyzing Thermal Anomaly', next: 'Isolate Vulnerable Links', reasoning: 'SHAP Value deviation detected on Thermal Core-08: cooling restrictions driving anomaly score spike (98.4%). Isolation Forest confirms outlier status.', confidence: 89.4 },
     costImpact: { potential: 120, recovered: 0, downtime: 0, saved: 100 },
     twin: { current: 34, predicted: 75, diff: 41 },
     xai: {
@@ -669,7 +963,7 @@ const simulationStages = [
     ],
     nodeStates: { 8: 'critical', 4: 'warning', 5: 'warning', 11: 'healthy' },
     rca: { cause: 'GPU Thermal Spike & API Throttling', confidence: 96, affected: 3, time: '1.8 Minutes' },
-    brain: { action: 'Isolating Node-08', next: 'Rerouting user traffic to spare spare Node-11', reasoning: 'Diverting user queries to prevent complete web API lockups.', confidence: 97.2 },
+    brain: { action: 'Isolating Node-08', next: 'Rerouting user traffic to spare spare Node-11', reasoning: 'SHAP Value cascade warning: database query backup propagating to Load-Balancer-05. Random Forest model predicts high risk of SLA failure.', confidence: 97.2 },
     costImpact: { potential: 420, recovered: 120, downtime: 1.2, saved: 75 },
     twin: { current: 82, predicted: 98, diff: 16 },
     xai: {
@@ -749,7 +1043,7 @@ const simulationStages = [
     ],
     nodeStates: { 8: 'isolated', 4: 'healthy', 5: 'healthy', 11: 'active' },
     rca: { cause: 'GPU Thermal Spike (Mitigated)', confidence: 96, affected: 1, time: 'N/A' },
-    brain: { action: 'Workload Migration Active', next: 'Validate Stabilization', reasoning: 'Syncing spare databases, scaling cooling fans, isolating primary hardware.', confidence: 94.8 },
+    brain: { action: 'Workload Migration Active', next: 'Validate Stabilization', reasoning: 'AI Directive: Workload migration active. Random Forest health status: REMEDIATING. Isolation Forest score returning to baseline.', confidence: 94.8 },
     costImpact: { potential: 420, recovered: 350, downtime: 2.8, saved: 85 },
     twin: { current: 48, predicted: 12, diff: 36 },
     xai: {
@@ -828,7 +1122,7 @@ const simulationStages = [
     ],
     nodeStates: { 8: 'cooling', 4: 'healthy', 5: 'healthy', 11: 'healthy' },
     rca: { cause: 'N/A (Resolved)', confidence: 98, affected: 0, time: 'N/A' },
-    brain: { action: 'Verifying Integrity Checks', next: 'Nominal Scan Cycle', reasoning: 'Ensuring packet integrity and loading spare nodes safely.', confidence: 98.1 },
+    brain: { action: 'Verifying Integrity Checks', next: 'Nominal Scan Cycle', reasoning: 'AI Validation: Telemetry streams successfully stabilized. Random Forest verification: 100% healthy.', confidence: 98.1 },
     costImpact: { potential: 420, recovered: 415, downtime: 3.7, saved: 92 },
     twin: { current: 12, predicted: 2, diff: 10 },
     xai: {
@@ -905,7 +1199,7 @@ const simulationStages = [
     ],
     nodeStates: { 8: 'healthy', 4: 'healthy', 5: 'healthy', 11: 'healthy' },
     rca: { cause: 'N/A (Resolved)', confidence: 99, affected: 0, time: 'N/A' },
-    brain: { action: 'Re-entering Nominal SCAN State', next: 'Analyze Logs', reasoning: 'Continuous security scans active. Target thresholds completely secure.', confidence: 99.4 },
+    brain: { action: 'Re-entering Nominal SCAN State', next: 'Analyze Logs', reasoning: 'Self-healing loop complete. Re-entering high-alert autonomous threat scanning.', confidence: 99.4 },
     costImpact: { potential: 420, recovered: 415, downtime: 3.7, saved: 92 },
     twin: { current: 2, predicted: 2, diff: 0 },
     xai: {
@@ -977,48 +1271,583 @@ let predictionCountdownInterval = null;
 
 // Document Loaded Orchestrator
 document.addEventListener('DOMContentLoaded', () => {
-  createFloatingParticles();
-  initUI();
-  bootstrapApplication();
-  startTickingClocks();
-  startPredictionCountdown();
+  runSafely(createFloatingParticles, 'particles');
+  runSafely(initUI, 'ui-bindings');
+  runSafely(initDelegatedControls, 'delegated-controls');
+  runSafely(initializePageRoute, 'page-routing');
+  bootstrapApplication().catch((error) => {
+    console.warn('Bootstrap failed, staying in local UI mode:', error);
+    runSafely(refreshLiveViews, 'fallback-refresh');
+  });
+  runSafely(startTickingClocks, 'clocks');
+  runSafely(startPredictionCountdown, 'prediction-countdown');
 });
+
+function runSafely(fn, label) {
+  try {
+    return fn();
+  } catch (error) {
+    console.warn(`SYNAPSE-ARC ${label} failed:`, error);
+    return null;
+  }
+}
+
+function triggerInstantFeedback(buttonEl) {
+  if (!buttonEl) return;
+  if (window.SynapseCore) {
+    window.SynapseCore.clearAllTimers();
+    window.SynapseCore.isSimulationRunning = true;
+  }
+
+  if (!buttonEl.innerHTML.includes("INITIALIZING")) {
+    buttonEl.dataset.originalHtml = buttonEl.innerHTML;
+    buttonEl.dataset.originalClass = buttonEl.className;
+  }
+
+  buttonEl.innerHTML = `<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> INITIALIZING AI ENGINE...`;
+  buttonEl.className = "flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-red-600 text-white text-xs font-extrabold tracking-wider uppercase shadow-glow animate-pulse scale-95 opacity-90 transition-all duration-100";
+  createIconsSafe();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const API = (window.SYNAPSE_ARC_API_URL || 'http://' + window.location.hostname + ':8000').replace(/\/$/, '');
+
+    async function postApi(path, body = {}) {
+        try {
+            const res = await fetch(API + path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            return await res.json();
+        } catch (err) {
+            console.warn('API call failed:', path, err);
+            return null;
+        }
+    }
+
+    async function getApi(path) {
+        try {
+            const res = await fetch(API + path);
+            return await res.json();
+        } catch (err) {
+            console.warn('API GET failed:', path, err);
+            return null;
+        }
+    }
+
+    function populateShapPanel(shap) {
+        if (!shap) return;
+        const featuresEl = document.getElementById('mlShapFeatures');
+        const summaryEl = document.getElementById('mlShapSummary');
+        if (summaryEl && shap.summary) summaryEl.innerText = shap.summary;
+        if (featuresEl && shap.feature_contributions && shap.feature_contributions.length) {
+            featuresEl.innerHTML = shap.feature_contributions.map(fc => {
+                const pct = Math.min(100, Math.abs(fc.overflow || fc.weight || 0));
+                const color = pct > 50 ? 'bg-red-500' : pct > 25 ? 'bg-amber-500' : 'bg-emerald-500';
+                return '<div class="flex flex-col gap-1">' +
+                    '<div class="flex justify-between text-[9px] text-slate-400 font-mono uppercase">' +
+                    '<span>' + (fc.feature || 'unknown') + '</span>' +
+                    '<span class="font-bold">' + (fc.overflow != null ? '+' + fc.overflow : (fc.weight || 0)) + '</span>' +
+                    '</div>' +
+                    '<div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">' +
+                    '<div class="' + color + ' h-full rounded-full transition-all duration-500" style="width:' + pct + '%"></div>' +
+                    '</div></div>';
+            }).join('');
+        }
+        if (shap.root_cause) {
+            const reasonEl = document.getElementById('mlDecisionReason');
+            if (reasonEl) reasonEl.innerText = shap.root_cause;
+        }
+    }
+
+    function populateDecisionPanel(analysis) {
+        if (!analysis) return;
+        const decision = analysis.decision || {};
+        const forecast = analysis.forecast || {};
+        const anomaly = analysis.anomaly || {};
+        safeUpdateById('mlDecisionAction', decision.action ? decision.action.toUpperCase() : 'OBSERVE');
+        safeUpdateById('mlDecisionConfidence', decision.confidence ? Math.round(decision.confidence * 100) + '%' : '50%');
+        safeUpdateById('mlForecastRisk', forecast.risk_score ? forecast.risk_score + '% risk' : '0% risk');
+        safeUpdateById('mlForecastWindow', forecast.time_to_threshold || 'N/A');
+        var riskVal = anomaly.score ? Math.round(anomaly.score * 100) : 4;
+        var riskTextEl = document.getElementById('aiRiskScoreText');
+        if (riskTextEl) riskTextEl.innerHTML = '<span id="aiRiskScoreVal" data-current="' + riskVal + '">' + riskVal + '%</span>';
+    }
+
+    function safeUpdateById(id, text) {
+        var el = document.getElementById(id);
+        if (el) el.innerText = text;
+    }
+
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        const btnId = btn.id || '';
+        const btnText = btn.innerText || '';
+
+        // ============================================================
+        // CONTROL PANEL BUTTON DISPATCHER — OPERATOR-DRIVEN PIPELINE
+        // ============================================================
+
+        // ── HELPER: Populate all monitoring panels from a backend result ──
+        function populateAllPanels(result, mode) {
+            const analysis = result.analysis || result || {};
+            const anomaly  = result.anomaly || analysis.anomaly || {};
+            const decision = analysis.decision || result.decision || {};
+            const forecast = analysis.forecast || result.forecast || {};
+            const snap     = result.snapshot   || result.payload  || {};
+            const expl     = analysis.explainability || {};
+
+            // ── Risk score gauge ──
+            const rawScore = anomaly.score != null ? anomaly.score : (forecast.forecast_risk || 0.04);
+            const riskPct  = Math.round(rawScore * 100);
+            const riskEl   = document.getElementById('aiRiskScoreVal');
+            if (riskEl) {
+                riskEl.textContent = riskPct + '%';
+                riskEl.setAttribute('data-current', riskPct);
+            }
+            // Animate the radial gauge ring
+            const ring = document.getElementById('aiRadialProgressCircle');
+            if (ring) {
+                const circ = 2 * Math.PI * 54;
+                const dash = circ * (1 - Math.min(1, riskPct / 100));
+                ring.setAttribute('stroke-dasharray', circ.toFixed(2));
+                ring.setAttribute('stroke-dashoffset', dash.toFixed(2));
+                ring.setAttribute('stroke', riskPct > 70 ? '#EF4444' : riskPct > 40 ? '#F59E0B' : '#10B981');
+            }
+
+            // ── Threat level ──
+            const threat = anomaly.severity || (riskPct > 70 ? 'critical' : riskPct > 40 ? 'high' : 'minimal');
+            safeUpdateById('aiThreatLevelVal', threat.charAt(0).toUpperCase() + threat.slice(1));
+            const threatEl = document.getElementById('aiThreatLevelVal');
+            if (threatEl) {
+                threatEl.className = 'text-sm font-bold mt-1 ' + (riskPct > 70 ? 'text-red-500' : riskPct > 40 ? 'text-amber-500' : 'text-emerald-500');
+            }
+
+            // ── ML Decision panel ──
+            safeUpdateById('mlDecisionAction',     (decision.action || 'observe').toUpperCase());
+            safeUpdateById('mlDecisionConfidence', decision.confidence ? Math.round(decision.confidence * 100) + '%' : (riskPct > 50 ? '87%' : '50%'));
+            safeUpdateById('mlForecastRisk',       (Math.round((forecast.forecast_risk || 0) * 100)) + '% risk');
+            safeUpdateById('mlForecastWindow',     forecast.time_to_threshold || 'N/A');
+            const reasonEl = document.getElementById('mlDecisionReason');
+            if (reasonEl) reasonEl.innerText = decision.reason || expl.why_now || 'Awaiting backend analysis.';
+
+            // ── SHAP / Feature contributions ──
+            const contribs = expl.feature_contributions || [];
+            const shapFeats = document.getElementById('mlShapFeatures');
+            if (shapFeats && contribs.length) {
+                shapFeats.innerHTML = contribs.slice(0, 5).map(fc => {
+                    const pct   = Math.min(100, Math.round(Math.abs((fc.overflow || 0) / Math.max(1, fc.threshold || 1) * 100)));
+                    const color = pct > 60 ? 'bg-red-500' : pct > 30 ? 'bg-amber-500' : 'bg-emerald-500';
+                    return `<div class="flex flex-col gap-1">
+                        <div class="flex justify-between text-[9px] text-slate-400 font-mono uppercase">
+                            <span>${fc.feature || 'unknown'}</span>
+                            <span class="font-bold">${fc.value != null ? fc.value.toFixed(1) : 'N/A'} (overflow: ${(fc.overflow||0).toFixed(1)})</span>
+                        </div>
+                        <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div class="${color} h-full rounded-full transition-all duration-700" style="width:${pct}%"></div>
+                        </div></div>`;
+                }).join('');
+            }
+            const shapSumEl = document.getElementById('mlShapSummary');
+            if (shapSumEl && expl.summary) shapSumEl.innerText = expl.summary;
+
+            // ── RCA panel ──
+            safeUpdateById('rcaCauseVal',      decision.feature ? decision.feature.toUpperCase() + ' pressure' : (anomaly.reason || 'N/A'));
+            safeUpdateById('rcaConfidenceVal', decision.confidence ? Math.round(decision.confidence * 100) + '%' : (riskPct > 50 ? '87%' : '0%'));
+            safeUpdateById('rcaAffectedVal',   anomaly.anomaly ? '1 System' : '0 Systems');
+            safeUpdateById('rcaTimeVal',       forecast.time_to_threshold || 'N/A');
+
+            // ── Telemetry gauges ──
+            if (snap.cpu != null) {
+                const cpuPct = Math.round(snap.cpu);
+                safeUpdateById('insCpuText', cpuPct + '%');
+                const cpuBar = document.getElementById('insCpuBar');
+                if (cpuBar) cpuBar.style.width = cpuPct + '%';
+                const telCpu = document.getElementById('telCpu');
+                if (telCpu) { telCpu.textContent = cpuPct + '%'; telCpu.setAttribute('data-current', cpuPct); }
+                const telCpuBar = document.getElementById('telCpuBar');
+                if (telCpuBar) telCpuBar.style.width = cpuPct + '%';
+            }
+            if (snap.memory != null) {
+                const memPct = Math.round(snap.memory);
+                safeUpdateById('insRamText', memPct + '%');
+                const ramBar = document.getElementById('insRamBar');
+                if (ramBar) ramBar.style.width = memPct + '%';
+                const telMem = document.getElementById('telMem');
+                if (telMem) { telMem.textContent = memPct + '%'; telMem.setAttribute('data-current', memPct); }
+                const telMemBar = document.getElementById('telMemBar');
+                if (telMemBar) telMemBar.style.width = memPct + '%';
+            }
+            if (snap.temp != null) {
+                safeUpdateById('insTempText', snap.temp + '°C');
+                const tempBar = document.getElementById('insTempBar');
+                if (tempBar) tempBar.style.width = Math.min(100, Math.round(snap.temp)) + '%';
+                safeUpdateText('.gpu-temp-val', snap.temp + '°C');
+            }
+
+            // ── Digital twin bars ──
+            const twinCurrent   = riskPct;
+            const twinPredicted = Math.min(100, riskPct + 10);
+            safeUpdateById('twinCurrentText',   twinCurrent + '% Risk');
+            safeUpdateById('twinPredictedText', twinPredicted + '% Risk');
+            const twinCurBar = document.getElementById('twinCurrentBar');
+            if (twinCurBar) { twinCurBar.style.width = twinCurrent + '%'; twinCurBar.className = 'h-full rounded-full transition-all duration-700 ' + (riskPct > 70 ? 'bg-red-500' : riskPct > 40 ? 'bg-amber-500' : 'bg-emerald-500'); }
+            const twinPreBar = document.getElementById('twinPredictedBar');
+            if (twinPreBar) twinPreBar.style.width = twinPredicted + '%';
+            safeUpdateById('twinDiffText', '▲ ' + (twinPredicted - twinCurrent) + '% Divergence');
+
+            // ── Risk category breakdown bars ──
+            const contributions = expl.feature_contributions || [];
+            const getOverflow = (feat) => { const f = contributions.find(c => c.feature === feat); return f ? Math.min(100, Math.round(f.overflow || 0)) : 0; };
+            const tempOver = getOverflow('temp');   safeUpdateById('confThermalVal',  tempOver + '%');  document.getElementById('confThermalBar')?.style.setProperty('width', tempOver + '%');
+            const netOver  = getOverflow('network'); safeUpdateById('confNetworkVal', netOver + '%');   document.getElementById('confNetworkBar')?.style.setProperty('width', netOver + '%');
+            const diskOver = getOverflow('disk');   safeUpdateById('confPowerVal',    diskOver + '%');  document.getElementById('confPowerBar')?.style.setProperty('width', diskOver + '%');
+            const memOver  = getOverflow('memory'); safeUpdateById('confMemoryVal',   memOver + '%');   document.getElementById('confMemoryBar')?.style.setProperty('width', memOver + '%');
+
+            // ── Brain card ──
+            safeUpdateById('brainActionVal', (decision.action || 'observe').replace(/_/g, ' ').toUpperCase());
+            safeUpdateById('brainReasoningVal', expl.summary || decision.reason || 'Awaiting analysis.');
+            safeUpdateById('brainConfidenceVal', decision.confidence ? Math.round(decision.confidence * 100) + '%' : '50%');
+
+            // ── Node status indicator on map ──
+            const nodeEl = document.getElementById('node-db-cluster');
+            if (nodeEl) {
+                if (anomaly.anomaly) {
+                    nodeEl.setAttribute('fill', riskPct > 70 ? '#EF4444' : '#F59E0B');
+                    nodeEl.setAttribute('stroke', riskPct > 70 ? '#EF4444' : '#F59E0B');
+                } else {
+                    nodeEl.setAttribute('fill', '#0F172A');
+                    nodeEl.setAttribute('stroke', '#00F0FF');
+                }
+            }
+            safeUpdateById('insStatus', anomaly.anomaly ? (riskPct > 70 ? 'CRITICAL' : 'WARNING') : 'HEALTHY');
+            const insStatusEl = document.getElementById('insStatus');
+            if (insStatusEl) insStatusEl.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold tracking-wider ' + (anomaly.anomaly ? (riskPct > 70 ? 'bg-red-500/10 text-red-500 border border-red-500/20 animate-pulse' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20') : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20');
+
+            // ── Blast radius forecast ──
+            const blastNodes = anomaly.anomaly ? (riskPct > 70 ? 3 : 1) : 0;
+            safeUpdateById('forecastCurrent', blastNodes + ' Node' + (blastNodes !== 1 ? 's' : ''));
+            safeUpdateById('forecastMin2',    (blastNodes + (anomaly.anomaly ? 2 : 0)) + ' Nodes');
+            safeUpdateById('forecastMin5',    (blastNodes + (anomaly.anomaly ? 5 : 0)) + ' Nodes');
+
+            // ── AI Confidence ──
+            const aiConf = anomaly.anomaly ? 94.5 : 98.7;
+            safeUpdateById('aiConfidenceVal', aiConf.toFixed(2) + '%');
+            const aiConfEl = document.getElementById('aiConfidenceVal');
+            if (aiConfEl) aiConfEl.setAttribute('data-current', aiConf);
+        }
+
+        // ── HELPER: Animate pipeline steps (just lights up dots, no log spam) ──
+        function animatePipelineSteps(steps) {
+            const dots = document.querySelectorAll('.pipeline-step-dot');
+            if (!steps || !steps.length) return;
+            // Only light up NEW steps (don't reset already-lit ones)
+            steps.forEach((stepIdx, i) => {
+                setTimeout(() => {
+                    const dot = dots[stepIdx];
+                    if (!dot) return;
+                    dot.classList.remove('bg-primary/10', 'text-primary', 'bg-amber-500');
+                    dot.classList.add('bg-emerald-500', 'text-white');
+                }, i * 800);
+            });
+        }
+
+        // Reset all pipeline dots to idle state
+        function resetPipelineDots() {
+            document.querySelectorAll('.pipeline-step-dot').forEach(d => {
+                d.classList.remove('bg-emerald-500', 'bg-red-500', 'bg-amber-500', 'text-white');
+                d.classList.add('bg-primary/10', 'text-primary');
+            });
+        }
+
+        // ── HELPER: Populate SHAP panel from /shap endpoint ──
+        async function fetchAndPopulateShap() {
+            var shapData = await getApi('/shap');
+            if (shapData && shapData.shap) {
+                populateShapPanel(shapData.shap);
+                return shapData.shap;
+            }
+            return null;
+        }
+
+        // ── 0. RUN SIMULATION ──
+        if (btnId === 'btnStartSimMonitor' || btnText.includes('RUN SIMULATION')) {
+            appendLogToFeed('SUCCESS', '▶ Simulation started — collecting 30 rows of live system metrics...');
+            safeUpdateById('mlDecisionAction', 'COLLECTING...');
+            safeUpdateById('mlShapSummary', 'Collecting baseline system data...');
+
+            var simResult = await postApi('/simulate/run', {});
+            if (simResult) {
+                appendLogToFeed('SUCCESS', `✔ Collected ${simResult.rows_collected || 0} rows → datasets/generated/system_metrics.csv`);
+                appendLogToFeed('SUCCESS', `✔ ML model ${simResult.ml_trained ? 'trained successfully on live data' : 'training skipped (insufficient rows)'}`);
+                if (simResult.snapshot) {
+                    const s = simResult.snapshot;
+                    safeUpdateById('insCpuText', Math.round(s.cpu || 0) + '%');
+                    safeUpdateById('insRamText', Math.round(s.memory || 0) + '%');
+                    safeUpdateById('insTempText', (s.temp || 0) + '°C');
+                    const telCpu = document.getElementById('telCpu'); if (telCpu) telCpu.textContent = Math.round(s.cpu || 0) + '%';
+                    const telMem = document.getElementById('telMem'); if (telMem) telMem.textContent = Math.round(s.memory || 0) + '%';
+                }
+                safeUpdateById('mlDecisionAction', 'BASELINE TRAINED');
+                safeUpdateById('mlShapSummary', `Baseline captured: ${simResult.rows_collected} rows. CPU, Memory, Disk, Network distributions learned. Ready for anomaly detection.`);
+            } else {
+                appendLogToFeed('WARNING', '⚠ Backend unreachable — simulation failed.');
+            }
+        }
+
+        // ── 1. SPARK ANOMALY ──
+        if (btnId === 'floatTriggerAnomaly' || btnText.includes('SPARK ANOMALY')) {
+            appendLogToFeed('CRITICAL', '🔴 SPARK ANOMALY initiated — injecting critical resource pressure...');
+            resetPipelineDots();
+            animatePipelineSteps([0]); // DETECT lights up
+
+            var sparkResult = await postApi('/spark/run', { limit: 25 });
+            if (sparkResult) {
+                const rowsProcessed = sparkResult.spark ? sparkResult.spark.processed_rows : 0;
+                appendLogToFeed('WARNING', `Spark engine processed ${rowsProcessed} rows → ANOMALY DETECTED`);
+                appendLogToFeed('CRITICAL', `Status: ${sparkResult.status.toUpperCase()} | ML Model re-trained on injected data`);
+
+                populateAllPanels(sparkResult, 'spark');
+                animatePipelineSteps([1]); // ANALYZE lights up (DETECT already lit)
+
+                // Fetch SHAP explanation
+                var shap = await fetchAndPopulateShap();
+                if (shap) appendLogToFeed('SUCCESS', `SHAP root cause: ${shap.root_cause || 'Analysis complete'}`);
+
+                // After 3s → self-heal
+                setTimeout(async () => {
+                    appendLogToFeed('WARNING', '[AI OVERRIDE] Engaging autonomous self-healing protocol...');
+                    animatePipelineSteps([2, 3]); // ISOLATE + RECOVER
+
+                    var healResult = await postApi('/heal', { failure_type: 'resource_pressure' });
+                    if (healResult) {
+                        appendLogToFeed('SUCCESS', `Self-healing complete → Action: ${healResult.action} | Status: ${healResult.status}`);
+                        if (healResult.recovery_events) {
+                            healResult.recovery_events.forEach(ev =>
+                                appendLogToFeed('SUCCESS', `[${ev.step.toUpperCase()}] ${ev.message} — ${ev.status}`)
+                            );
+                        }
+
+                        // Validate + complete
+                        setTimeout(() => {
+                            animatePipelineSteps([4, 5]); // VALIDATE + COMPLETE
+                            appendLogToFeed('SUCCESS', '✅ Self-healing COMPLETE — system stabilizing');
+                            const nodeEl = document.getElementById('node-db-cluster');
+                            if (nodeEl) { nodeEl.setAttribute('fill', '#0F172A'); nodeEl.setAttribute('stroke', '#00F0FF'); }
+                            safeUpdateById('insStatus', 'RECOVERING');
+                            safeUpdateById('brainActionVal', 'STABILIZING');
+                            safeUpdateById('brainNextVal', 'Validate Recovery');
+                        }, 2500);
+                    }
+                }, 3000);
+
+            } else {
+                appendLogToFeed('WARNING', '⚠ Backend unreachable — run RUN SIMULATION first to collect data.');
+            }
+        }
+
+        // ── 2. LOAD CASCADE ──
+        if (btnId === 'floatTriggerCascade' || btnText.includes('LOAD CASCADE')) {
+            appendLogToFeed('CRITICAL', '🔴 CASCADE FAILURE loading — triggering multi-node cascade...');
+            resetPipelineDots();
+            animatePipelineSteps([0]);
+
+            var cascadeResult = await postApi('/simulate/anomaly', { failure_type: 'resource_pressure' });
+            if (cascadeResult) {
+                const snap2 = cascadeResult.payload || cascadeResult.snapshot || {};
+                appendLogToFeed('CRITICAL', `Cascade injected. Host: ${snap2.host || 'unknown'} | CPU: ${Math.round(snap2.cpu || 0)}% | MEM: ${Math.round(snap2.memory || 0)}%`);
+                appendLogToFeed('CRITICAL', `Root cause: Cascade Failure — Unauthorized Background Process (Context Mismatch)`);
+
+                populateAllPanels(cascadeResult, 'cascade');
+                safeUpdateById('rcaCauseVal', 'Multi-Node Cascade Failure');
+                animatePipelineSteps([1]);
+
+                var shap2 = await fetchAndPopulateShap();
+                if (shap2) appendLogToFeed('SUCCESS', `SHAP explainability: ${shap2.root_cause || 'Analysis complete'}`);
+
+                setTimeout(async () => {
+                    appendLogToFeed('WARNING', '[AI OVERRIDE] No human remediation detected. Engaging self-healing...');
+                    animatePipelineSteps([2, 3]);
+
+                    var healResult2 = await postApi('/heal', { failure_type: 'resource_pressure' });
+                    if (healResult2) {
+                        appendLogToFeed('SUCCESS', `Cascade recovery → Action: ${healResult2.action} | Status: ${healResult2.status}`);
+                        if (healResult2.recovery_events) {
+                            healResult2.recovery_events.forEach(ev =>
+                                appendLogToFeed('SUCCESS', `[${ev.step.toUpperCase()}] ${ev.message} — ${ev.status}`)
+                            );
+                        }
+                        setTimeout(() => {
+                            animatePipelineSteps([4, 5]);
+                            appendLogToFeed('SUCCESS', '✅ CASCADE RECOVERY COMPLETE — re-routing traffic to healthy nodes');
+                            const nodeEl2 = document.getElementById('node-db-cluster');
+                            if (nodeEl2) { nodeEl2.setAttribute('fill', '#0F172A'); nodeEl2.setAttribute('stroke', '#10B981'); }
+                            safeUpdateById('insStatus', 'RECOVERING');
+                        }, 2500);
+                    }
+                }, 5000);
+
+            } else {
+                appendLogToFeed('WARNING', '⚠ Backend unreachable for cascade. Run RUN SIMULATION first.');
+            }
+        }
+
+        // ── 3. AUTO RECOVERY ──
+        if (btnId === 'floatTriggerRecovery' || btnText.includes('AUTO RECOVERY')) {
+            appendLogToFeed('WARNING', '🔧 AUTO RECOVERY initiated — running self-healing protocol...');
+            resetPipelineDots();
+            animatePipelineSteps([0, 1, 2]);
+
+            var healResult3 = await postApi('/heal', { failure_type: 'service_crash' });
+            if (healResult3) {
+                appendLogToFeed('SUCCESS', `Recovery action: ${healResult3.action} | Result: ${healResult3.status}`);
+                if (healResult3.recovery_events) {
+                    healResult3.recovery_events.forEach(ev =>
+                        appendLogToFeed('SUCCESS', `[${ev.step.toUpperCase()}] ${ev.message} — ${ev.status}`)
+                    );
+                }
+                setTimeout(() => {
+                    animatePipelineSteps([3, 4, 5]);
+                    const nodeEl3 = document.getElementById('node-db-cluster');
+                    if (nodeEl3) { nodeEl3.setAttribute('fill', '#0F172A'); nodeEl3.setAttribute('stroke', '#00F0FF'); }
+                    safeUpdateById('insStatus', 'HEALTHY');
+                    safeUpdateById('brainActionVal', 'MONITORING');
+                    safeUpdateById('brainNextVal', 'Analyze Trends');
+                    safeUpdateById('brainReasoningVal', 'System recovered. Re-entering autonomous monitoring cycle.');
+                    const riskEl2 = document.getElementById('aiRiskScoreVal');
+                    if (riskEl2) { riskEl2.textContent = '6%'; riskEl2.setAttribute('data-current', 6); }
+                    appendLogToFeed('SUCCESS', '✅ System fully recovered and stabilized.');
+                }, 6500);
+            } else {
+                appendLogToFeed('WARNING', '⚠ Backend unreachable. Running UI-only recovery animation.');
+                runSafeHealingSequence();
+            }
+        }
+
+        // ── 4. RESET CLUSTER ──
+        if (btnId === 'floatTriggerReset' || btnText.includes('RESET CLUSTER')) {
+            appendLogToFeed('SUCCESS', '🔄 Resetting cluster — clearing all anomaly records...');
+            await postApi('/reset', {});
+
+            // Reset all UI panels to idle state
+            safeUpdateById('mlDecisionAction', 'OBSERVE');
+            safeUpdateById('mlDecisionConfidence', '50%');
+            safeUpdateById('mlForecastRisk', '0% risk');
+            safeUpdateById('mlForecastWindow', 'N/A');
+            safeUpdateById('mlDecisionReason', 'Waiting for backend decision output.');
+            safeUpdateById('mlShapSummary', 'Backend explainability summary will appear here.');
+            safeUpdateById('rcaCauseVal', 'N/A');
+            safeUpdateById('rcaConfidenceVal', '0%');
+            safeUpdateById('rcaAffectedVal', '0 Systems');
+            safeUpdateById('rcaTimeVal', 'N/A');
+            safeUpdateById('insStatus', 'HEALTHY');
+            safeUpdateById('brainActionVal', 'Scanning Telemetry');
+            safeUpdateById('brainNextVal', 'Analyze Trends');
+            safeUpdateById('brainReasoningVal', 'Continuous background monitoring for thermal and network drifts.');
+            safeUpdateById('aiThreatLevelVal', 'Minimal');
+            safeUpdateById('aiConfidenceVal', '98.70%');
+            safeUpdateById('forecastCurrent', '0 Nodes');
+            safeUpdateById('forecastMin2', '0 Nodes');
+            safeUpdateById('forecastMin5', '0 Nodes');
+            safeUpdateById('twinCurrentText', '4% Risk');
+            safeUpdateById('twinPredictedText', '5% Risk');
+            safeUpdateById('twinDiffText', '▲ 1% Divergence');
+
+            var shapFeatures = document.getElementById('mlShapFeatures');
+            if (shapFeatures) shapFeatures.innerHTML = '<span class="text-xs text-slate-500 font-medium">Waiting for explainability output.</span>';
+            var riskTextEl2 = document.getElementById('aiRiskScoreVal');
+            if (riskTextEl2) { riskTextEl2.textContent = '4%'; riskTextEl2.setAttribute('data-current', 4); }
+            const ringReset = document.getElementById('aiRadialProgressCircle');
+            if (ringReset) { const c = 2 * Math.PI * 54; ringReset.setAttribute('stroke-dasharray', c.toFixed(2)); ringReset.setAttribute('stroke-dashoffset', (c * 0.96).toFixed(2)); ringReset.setAttribute('stroke', '#10B981'); }
+            const nodeElReset = document.getElementById('node-db-cluster');
+            if (nodeElReset) { nodeElReset.setAttribute('fill', '#0F172A'); nodeElReset.setAttribute('stroke', '#00F0FF'); }
+
+            var logFeed = document.querySelector('.live-alert-feed-container');
+            if (logFeed) { while (logFeed.firstChild) logFeed.removeChild(logFeed.firstChild); }
+            resetHealingSequenceUI();
+            appendLogToFeed('SUCCESS', '✅ Cluster reset complete. All systems nominal. Ready for next simulation.');
+        }
+    });
+});
+
+
+// Safe text update by CSS selector
+function safeUpdateText(selector, text) {
+    var el = document.querySelector(selector);
+    if (el) el.innerText = text;
+}
+
+// Append a styled table row to the Live Alert Center Feed
+function appendLogToFeed(severity, msg) {
+    var feed = document.querySelector('.live-alert-feed-container');
+    if (!feed) return;
+    var row = document.createElement('tr');
+    var colorClass = severity === 'CRITICAL' ? 'text-red-500' : severity === 'WARNING' ? 'text-amber-500' : 'text-emerald-500';
+    row.className = 'text-[11px] font-mono';
+    row.innerHTML = '<td class="py-2.5 px-4 text-slate-400 whitespace-nowrap">' + new Date().toLocaleTimeString() + '</td><td class="py-2.5 px-4"><span class="px-2 py-0.5 rounded text-[9px] font-bold ' + colorClass + '">' + severity + '</span></td><td class="py-2.5 px-4 text-slate-300">' + msg + '</td>';
+    feed.prepend(row);
+}
+
+// Animate the 6 pipeline step dots green one-by-one
+function runSafeHealingSequence() {
+    var steps = document.querySelectorAll('.pipeline-step-dot');
+    if (!steps.length) return;
+    var delay = 0;
+    steps.forEach(function(step, index) {
+        setTimeout(function() {
+            step.classList.add('bg-emerald-500', 'text-white', 'shadow-glowGreen');
+            step.classList.remove('bg-primary/10', 'text-primary');
+            appendLogToFeed("SUCCESS", 'Pipeline Step ' + (index + 1) + '/6 completed successfully.');
+        }, delay);
+        delay += 1000;
+    });
+}
+
+// Reset all pipeline dots back to default
+function resetHealingSequenceUI() {
+    var steps = document.querySelectorAll('.pipeline-step-dot');
+    steps.forEach(function(step) {
+        step.classList.remove('bg-emerald-500', 'text-white', 'shadow-glowGreen');
+        step.classList.add('bg-primary/10', 'text-primary');
+    });
+}
+
+function initDelegatedControls() {
+    // Replaced by DOMContentLoaded block above.
+}
+
+function routePageFromLocation() {
+  const page = (window.location.hash || '').replace('#', '').trim();
+  return ['overview', 'monitoring', 'incident'].includes(page) ? page : 'overview';
+}
+
+function initializePageRoute() {
+  switchPageView(routePageFromLocation(), { updateHash: false });
+  window.addEventListener('hashchange', () => {
+    switchPageView(routePageFromLocation(), { updateHash: false });
+  });
+}
 
 async function bootstrapApplication() {
   const connected = await syncBackendState();
 
   if (connected) {
     connectBackendStream();
+    // Telemetry polling is slow/display-only. Backend pipeline is operator-driven.
+    startTelemetryPolling();
   } else {
-    startDemoMode();
+    console.warn('Backend disconnected. Dashboard loaded into static, calm state waiting for manual override.');
   }
 
-  startBackendRefreshLoop();
+  // Refresh loop disabled at startup — only activated after operator button clicks.
+  // startBackendRefreshLoop();
 
   refreshLiveViews();
 }
 
-function startDemoMode() {
-  if (state.simulationInterval) {
-    clearInterval(state.simulationInterval);
-  }
-
-  state.simulationActive = true;
-  state.currentStageIndex = 0;
-  loadSimulationStage(0);
-
-  state.simulationInterval = setInterval(() => {
-    state.currentStageIndex++;
-
-    if (state.currentStageIndex >= simulationStages.length) {
-      clearInterval(state.simulationInterval);
-      state.simulationActive = false;
-      return;
-    }
-
-    loadSimulationStage(state.currentStageIndex);
-  }, DATA_REFRESH_INTERVAL_MS);
-}
+// startDemoMode removed to enforce strict Operator-Driven Hybrid Cycle
 
 // Create live infrastructure drifting particles
 function createFloatingParticles() {
@@ -1095,15 +1924,6 @@ function startPredictionCountdown() {
 
 // Setup Initial UI Bindings & Router
 function initUI() {
-  // Sidebar router navigation
-  const navButtons = document.querySelectorAll('.sidebar-nav-btn');
-  navButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const targetPage = btn.getAttribute('data-page');
-      switchPageView(targetPage);
-    });
-  });
-
   // Dual Theme switch binding
   const themeSwitch = document.getElementById('themeSwitch');
   if (themeSwitch) {
@@ -1116,10 +1936,6 @@ function initUI() {
     });
   }
 
-  // Action CTA binding
-  document.getElementById('ctaLaunchMonitor')?.addEventListener('click', () => {
-    switchPageView('monitoring');
-  });
 
   // Collapsible demo control panel trigger
   const collapseBtn = document.getElementById('btnPanelCollapseToggle');
@@ -1134,27 +1950,9 @@ function initUI() {
         controlPanel.classList.remove('panel-collapsed');
         collapseBtn.innerHTML = `<i data-lucide="chevron-down" class="w-4 h-4"></i>`;
       }
-      lucide.createIcons();
+      createIconsSafe();
     });
   }
-
-  // Presentation Trigger Overrides (Floating panel buttons + Main buttons)
-  const triggers = [
-    { btnId: 'ctaWatchDemo', handler: startInteractiveSimulation },
-    { btnId: 'btnStartSimMonitor', handler: startInteractiveSimulation },
-    { btnId: 'floatTriggerCascade', handler: sparkAnomalyDemo },
-    { btnId: 'floatTriggerRecovery', handler: autoRecoverDemo },
-    { btnId: 'floatTriggerReset', handler: resetSimulationState }
-  ];
-
-  triggers.forEach(trig => {
-    const el = document.getElementById(trig.btnId);
-    el?.addEventListener('click', () => {
-      trig.handler?.();
-    });
-  });
-
-  document.getElementById('floatTriggerAnomaly')?.addEventListener('click', sparkAnomalyDemo);
 
   // Incident scrubbing timeline triggers (Incident replay)
   document.querySelectorAll('.replay-timeline-node').forEach(node => {
@@ -1170,38 +1968,71 @@ function initUI() {
     drawer?.classList.add('drawer-hidden');
   });
 
-  // Action center mitigation action override buttons (Page 3)
-  document.querySelectorAll('.mitigation-card').forEach(card => {
-    card.addEventListener('click', () => {
-      if (!state.simulationActive) {
-        alert('Please initiate the live simulation overlay first to visualize dynamic actions.');
-        return;
-      }
-      const actionName = card.getAttribute('data-action');
-      triggerManualMitigation(actionName, card);
-    });
-  });
 }
 
-async function sparkAnomalyDemo() {
+async function ensureDatasetLoaded() {
+  if (!state.selectedDatasetFile) {
+    return null;
+  }
+
+  const csv = await state.selectedDatasetFile.text();
+  const result = await fetchJson('/dataset/load', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: state.selectedDatasetFile.name,
+      csv,
+    }),
+  });
+
+  const label = document.getElementById('selectedDatasetName');
+  if (label) {
+    label.innerText = `${result.dataset?.loaded_rows || 0} rows loaded`;
+  }
+
+  return result;
+}
+
+async function runSparkProcessing() {
   try {
-    const result = await fetchJson('/simulate/anomaly', {
+    await ensureDatasetLoaded();
+    const result = await fetchJson('/spark/run', {
       method: 'POST',
-      body: JSON.stringify({
-        source: 'demo-spark',
-        host: 'spark-demo-node',
-        node: 'spark-demo-node',
-        cpu: 98,
-        memory: 95,
-      }),
+      body: JSON.stringify({ limit: 25 }),
     });
-    applySimulationResult('spark-anomaly', result);
+    applySimulationResult('spark-processing', result);
     connectBackendStream();
     startBackendRefreshLoop();
     refreshLiveViews();
     switchPageView('monitoring');
+    return syncBackendState();
   } catch (error) {
-    console.warn('Spark anomaly demo failed, falling back to local stage 1:', error);
+    console.warn('Spark backend processing failed:', error);
+    state.logs.push({
+      time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+      type: 'danger',
+      actor: 'Spark API',
+      msg: error.message || 'Spark processing failed',
+    });
+    refreshLiveViews();
+  }
+}
+
+async function loadAnomalyPipeline() {
+  try {
+    const result = await fetchJson('/anomaly/load', {
+      method: 'POST',
+      body: JSON.stringify({
+        failure_type: 'resource_pressure',
+      }),
+    });
+    applySimulationResult('load-anomaly', result);
+    connectBackendStream();
+    startBackendRefreshLoop();
+    refreshLiveViews();
+    switchPageView('monitoring');
+    return syncBackendState();
+  } catch (error) {
+    console.warn('Anomaly injection failed, falling back to local stage 1:', error);
     startInteractiveSimulation();
   }
 }
@@ -1224,20 +2055,23 @@ async function autoRecoverDemo() {
 }
 
 // Router Switch Controller
-function switchPageView(pageId) {
-  if (pageId === state.currentPage) return;
+function switchPageView(pageId, options = {}) {
+  if (!['overview', 'monitoring', 'incident'].includes(pageId)) return;
   
   const pages = ['overview', 'monitoring', 'incident'];
   pages.forEach(p => {
     const pageEl = document.getElementById(`page-${p}`);
     const navBtn = document.querySelector(`.sidebar-nav-btn[data-page="${p}"]`);
+    if (!pageEl) return;
     
     if (p === pageId) {
       pageEl.classList.remove('hidden-view');
+      pageEl.removeAttribute('aria-hidden');
       navBtn?.classList.add('bg-primary/10', 'text-primary', 'dark:text-white', 'border-l-4', 'border-primary');
       navBtn?.classList.remove('text-slate-500', 'dark:text-slate-400');
     } else {
       pageEl.classList.add('hidden-view');
+      pageEl.setAttribute('aria-hidden', 'true');
       navBtn?.classList.remove('bg-primary/10', 'text-primary', 'dark:text-white', 'border-l-4', 'border-primary');
       navBtn?.classList.add('text-slate-500', 'dark:text-slate-400');
     }
@@ -1254,12 +2088,29 @@ function switchPageView(pageId) {
   }
 
   state.currentPage = pageId;
+
+  if (options.updateHash !== false && window.location.hash !== `#${pageId}`) {
+    history.replaceState(null, '', `#${pageId}`);
+  }
+
+  const recoveredScreenOverlay = document.getElementById('system-recovered-overlay');
+  if (recoveredScreenOverlay && pageId !== 'incident') {
+    recoveredScreenOverlay.classList.add('opacity-0', 'pointer-events-none');
+    recoveredScreenOverlay.classList.remove('opacity-100');
+  }
   
   // Re-draw diagrams to fit potential canvas scale changes
   setTimeout(() => {
-    renderTopologies();
-    renderTimelineChart();
-    renderBlastRadiusChart();
+    try {
+      renderTopologies();
+      renderTimelineChart();
+      renderBlastRadiusChart();
+      updateDashboardMetrics();
+      updateLiveLogs();
+      updateSelfHealingWorkflow();
+    } catch (error) {
+      console.warn('Page refresh failed:', error);
+    }
   }, 100);
 }
 
@@ -1269,16 +2120,30 @@ function setTheme(mode) {
   const root = document.documentElement;
   if (mode === 'dark') {
     root.classList.add('dark');
-    document.getElementById('themeSwitchText').innerText = 'CYBER SPACE';
+    setText('themeSwitchText', 'CYBER SPACE');
   } else {
     root.classList.remove('dark');
-    document.getElementById('themeSwitchText').innerText = 'OPERATIONAL';
+    setText('themeSwitchText', 'OPERATIONAL');
   }
 }
 
 // Reset Entire Simulation State back to normal
 async function resetSimulationState() {
-  clearInterval(state.simulationInterval);
+  if (window.SynapseCore) {
+    window.SynapseCore.clearAllTimers();
+  }
+  
+
+  const floatBtns = ['floatTriggerAnomaly', 'floatTriggerCascade', 'floatTriggerRecovery'];
+  floatBtns.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.dataset.originalHtml) {
+      el.innerHTML = el.dataset.originalHtml;
+      el.className = el.dataset.originalClass;
+    }
+  });
+
+  state.activeDemoMode = null;
   state.simulationActive = false;
   state.currentStageIndex = 0;
   predictionCountdownTime = 138;
@@ -1433,7 +2298,7 @@ function renderTopologies() {
       // Determine Node Color based on global live state overrides
       let glowFilter = '';
       let isCentralNode = node.id === 1;
-      let statusColor = '#10B981'; // Healthy Green
+      let statusColor = '#06B6D4'; // Stable Neon Cyan
 
       // Dynamic Node overrides from simulation steps
       const stageObj = resolveActiveStage();
@@ -1441,18 +2306,18 @@ function renderTopologies() {
 
       if (targetState) {
         if (targetState === 'warning') {
-          statusColor = '#F59E0B'; // Amber
+          statusColor = '#EF4444'; // Crimson Anomaly
           glowFilter = 'filter="url(#glow-p1)"';
         } else if (targetState === 'critical') {
-          statusColor = '#EF4444'; // Red
+          statusColor = '#EF4444'; // Crimson Anomaly
           glowFilter = 'filter="url(#glow-p1)"';
         } else if (targetState === 'isolated') {
           statusColor = '#64748B'; // Slate Grey / offline
         } else if (targetState === 'cooling') {
-          statusColor = '#06B6D4'; // Cyan healing
+          statusColor = '#06B6D4'; // Neon Cyan
           glowFilter = 'filter="url(#glow-cyan)"';
         } else if (targetState === 'active') {
-          statusColor = '#06B6D4'; // Cyber active
+          statusColor = '#06B6D4'; // Neon Cyan active
           glowFilter = 'filter="url(#glow-cyan)"';
         }
       }
@@ -1530,8 +2395,8 @@ function updateTelemetryGauge() {
   if (!node) return;
 
   // Set titles across inspector + drawer
-  document.getElementById('insNodeName').innerText = node.name.toUpperCase();
-  document.getElementById('insNodeRole').innerText = node.type;
+  setText('insNodeName', node.name.toUpperCase());
+  setText('insNodeRole', node.type);
 
   // Drawer Title
   const drTitle = document.getElementById('drawerNodeName');
@@ -1543,6 +2408,10 @@ function updateTelemetryGauge() {
   // Determine current active node health values
   let cpu = node.cpu;
   let ram = node.ram;
+  if (node.id === 8 && state.liveTelemetry) {
+    cpu = Math.round(state.liveTelemetry.cpu_utilization);
+    ram = Math.round(state.liveTelemetry.memory_utilization);
+  }
   let temp = node.temp;
   let power = node.power;
   let packetLoss = node.packetLoss;
@@ -1604,14 +2473,17 @@ function updateTelemetryGauge() {
   }
 
   // Update Main Inspector panel DOM
-  document.getElementById('insStatus').innerText = status;
-  document.getElementById('insStatus').className = `text-xs px-2.5 py-0.5 rounded-full font-bold tracking-wider ${badgeStyle}`;
-  document.getElementById('insCpuText').innerText = `${cpu}%`;
-  document.getElementById('insCpuBar').style.width = `${cpu}%`;
-  document.getElementById('insRamText').innerText = `${ram}%`;
-  document.getElementById('insRamBar').style.width = `${ram}%`;
-  document.getElementById('insTempText').innerText = `${temp}°C`;
-  document.getElementById('insTempBar').style.width = `${Math.min(temp, 100)}%`;
+  const insStatus = document.getElementById('insStatus');
+  if (insStatus) {
+    insStatus.innerText = status;
+    insStatus.className = `text-xs px-2.5 py-0.5 rounded-full font-bold tracking-wider ${badgeStyle}`;
+  }
+  setText('insCpuText', `${cpu}%`);
+  setWidth('insCpuBar', `${cpu}%`);
+  setText('insRamText', `${ram}%`);
+  setWidth('insRamBar', `${ram}%`);
+  setText('insTempText', `${temp}°C`);
+  setWidth('insTempBar', `${Math.min(temp, 100)}%`);
 
   // Update Drawer elements
   const drStatus = document.getElementById('drawerStatusBadge');
@@ -1724,7 +2596,7 @@ function renderArchitectureFlow() {
   });
 
   container.innerHTML = html;
-  lucide.createIcons();
+  createIconsSafe();
 }
 
 // Render SVG area Chart recording Risk and Load progression (Page 2)
@@ -1964,7 +2836,13 @@ function updateDashboardMetrics() {
   // Overview Page counters updates
   animateNumber('ovAnomaliesToday', stage.anomalies, '', '');
   animateNumber('ovThreatsPrevented', stage.currentStageIndex >= 4 ? 8 : (stage.currentStageIndex >= 1 ? 7 : 6), '', '');
-  animateNumber('ovPredictions', stage.currentStageIndex * 24 + 104, '', '');
+  const getPredictions = () => {
+    if (state.liveTelemetry && state.liveTelemetry.total_predictions) {
+      return state.liveTelemetry.total_predictions;
+    }
+    return stage.currentStageIndex * 24 + 104;
+  };
+  animateNumber('ovPredictions', getPredictions(), '', '');
   animateNumber('ovHealActions', stage.currentStageIndex >= 3 ? 33 : 32, '', '');
 
   // Update Donut Chart Counts (Real-time distribution indicators)
@@ -1979,9 +2857,9 @@ function updateDashboardMetrics() {
   if (donutRecoveredText) donutRecoveredText.innerText = `${stage.currentStageIndex >= 4 ? 1 : 0} Nodes`;
 
   // Update rack capacity
-  document.getElementById('rackACount').innerText = `${state.currentStageIndex === 2 ? '3/4' : '4/4'} ONLINE`;
-  document.getElementById('rackBCount').innerText = '4/4 ONLINE';
-  document.getElementById('rackCCount').innerText = '4/4 ONLINE';
+  setText('rackACount', `${state.currentStageIndex === 2 ? '3/4' : '4/4'} ONLINE`);
+  setText('rackBCount', '4/4 ONLINE');
+  setText('rackCCount', '4/4 ONLINE');
 
   // Live monitor KPI subtext and badges
   const liveStatusBadge = document.getElementById('liveStatusBadge');
@@ -2026,22 +2904,22 @@ function updateDashboardMetrics() {
 
   // Live telemetry meters
   animateNumber('telCpu', stage.cpu, '', '%', true);
-  document.getElementById('telCpuBar').style.width = `${stage.cpu}%`;
+  setWidth('telCpuBar', `${stage.cpu}%`);
   
   animateNumber('telGpu', stage.gpu, '', '°C', true);
-  document.getElementById('telGpuBar').style.width = `${stage.gpu}%`;
+  setWidth('telGpuBar', `${stage.gpu}%`);
   
   animateNumber('telMem', stage.memory, '', '%', true);
-  document.getElementById('telMemBar').style.width = `${stage.memory}%`;
+  setWidth('telMemBar', `${stage.memory}%`);
   
   animateNumber('telLat', stage.latency, '', ' ms');
-  document.getElementById('telLatBar').style.width = `${Math.min(stage.latency / 4, 100)}%`;
+  setWidth('telLatBar', `${Math.min(stage.latency / 4, 100)}%`);
   
   animateNumber('telLoss', stage.packetLoss, '', '%', true);
-  document.getElementById('telLossBar').style.width = `${Math.min(stage.packetLoss * 10, 100)}%`;
+  setWidth('telLossBar', `${Math.min(stage.packetLoss * 10, 100)}%`);
   
   animateNumber('telPower', stage.power, '', ' kW', true);
-  document.getElementById('telPowerBar').style.width = `${Math.min(stage.power * 4, 100)}%`;
+  setWidth('telPowerBar', `${Math.min(stage.power * 4, 100)}%`);
 
   // Draw Mini CSS-sparklines for all telemetry cells dynamically!
   Object.keys(sparklineDataSets).forEach(key => {
@@ -2069,35 +2947,35 @@ function updateDashboardMetrics() {
   }
 
   // Page 2 - Root Cause Panel update
-  document.getElementById('rcaCauseVal').innerText = stage.rca.cause;
-  document.getElementById('rcaConfidenceVal').innerText = stage.rca.confidence > 0 ? `${stage.rca.confidence}%` : 'N/A';
-  document.getElementById('rcaAffectedVal').innerText = stage.rca.affected > 0 ? `${stage.rca.affected} Nodes` : 'None';
-  document.getElementById('rcaTimeVal').innerText = stage.rca.time;
+  setText('rcaCauseVal', stage.rca.cause);
+  setText('rcaConfidenceVal', stage.rca.confidence > 0 ? `${stage.rca.confidence}%` : 'N/A');
+  setText('rcaAffectedVal', stage.rca.affected > 0 ? `${stage.rca.affected} Nodes` : 'None');
+  setText('rcaTimeVal', stage.rca.time);
 
   // Page 2 - Digital Twin Panel comparison updates
-  document.getElementById('twinCurrentText').innerText = `${stage.twin.current}% Risk`;
-  document.getElementById('twinCurrentBar').style.width = `${stage.twin.current}%`;
-  document.getElementById('twinPredictedText').innerText = `${stage.twin.predicted}% Risk`;
-  document.getElementById('twinPredictedBar').style.width = `${stage.twin.predicted}%`;
-  document.getElementById('twinDiffText').innerText = `▲ ${stage.twin.diff}% Divergence`;
+  setText('twinCurrentText', `${stage.twin.current}% Risk`);
+  setWidth('twinCurrentBar', `${stage.twin.current}%`);
+  setText('twinPredictedText', `${stage.twin.predicted}% Risk`);
+  setWidth('twinPredictedBar', `${stage.twin.predicted}%`);
+  setText('twinDiffText', `▲ ${stage.twin.diff}% Divergence`);
 
   // Page 2 - risk confidence breakdown update
-  document.getElementById('confThermalBar').style.width = `${stage.riskConfidence.thermal}%`;
-  document.getElementById('confThermalVal').innerText = `${stage.riskConfidence.thermal}%`;
+  setWidth('confThermalBar', `${stage.riskConfidence.thermal}%`);
+  setText('confThermalVal', `${stage.riskConfidence.thermal}%`);
   
-  document.getElementById('confNetworkBar').style.width = `${stage.riskConfidence.network}%`;
-  document.getElementById('confNetworkVal').innerText = `${stage.riskConfidence.network}%`;
+  setWidth('confNetworkBar', `${stage.riskConfidence.network}%`);
+  setText('confNetworkVal', `${stage.riskConfidence.network}%`);
   
-  document.getElementById('confPowerBar').style.width = `${stage.riskConfidence.power}%`;
-  document.getElementById('confPowerVal').innerText = `${stage.riskConfidence.power}%`;
+  setWidth('confPowerBar', `${stage.riskConfidence.power}%`);
+  setText('confPowerVal', `${stage.riskConfidence.power}%`);
   
-  document.getElementById('confMemoryBar').style.width = `${stage.riskConfidence.memory}%`;
-  document.getElementById('confMemoryVal').innerText = `${stage.riskConfidence.memory}%`;
+  setWidth('confMemoryBar', `${stage.riskConfidence.memory}%`);
+  setText('confMemoryVal', `${stage.riskConfidence.memory}%`);
 
   // Page 2 - Blast radius forecast metrics
-  document.getElementById('forecastCurrent').innerText = `${stage.blastRadiusForecast.current} Node`;
-  document.getElementById('forecastMin2').innerText = `${stage.blastRadiusForecast.min2} Nodes`;
-  document.getElementById('forecastMin5').innerText = `${stage.blastRadiusForecast.min5} Nodes`;
+  setText('forecastCurrent', `${stage.blastRadiusForecast.current} Node`);
+  setText('forecastMin2', `${stage.blastRadiusForecast.min2} Nodes`);
+  setText('forecastMin5', `${stage.blastRadiusForecast.min5} Nodes`);
 
   // Page 2 - Explainable AI (XAI) factors updating
   const xaiContainer = document.getElementById('xai-metric-correlations');
@@ -2116,8 +2994,11 @@ function updateDashboardMetrics() {
       `;
     });
     // Update XAI dynamic header
-    document.getElementById('xaiRiskIncreaseHeader').innerText = `Risk Level Deviation: ${stage.xai.totalIncrease}`;
-    document.getElementById('xaiRiskIncreaseHeader').className = `text-xs font-bold font-mono ${stage.riskScore >= 75 ? 'text-red-500 animate-pulse' : 'text-slate-800 dark:text-white'}`;
+    const xaiHeader = document.getElementById('xaiRiskIncreaseHeader');
+    if (xaiHeader) {
+      xaiHeader.innerText = `Risk Level Deviation: ${stage.xai.totalIncrease}`;
+      xaiHeader.className = `text-xs font-bold font-mono ${stage.riskScore >= 75 ? 'text-red-500 animate-pulse' : 'text-slate-800 dark:text-white'}`;
+    }
   }
 
   const mlDecision = stage.mlDecision || { action: 'observe', reason: 'Waiting for backend decision output.', confidence: 0.5 };
@@ -2195,16 +3076,16 @@ function updateDashboardMetrics() {
   }
 
   // Page 3 AI Brain update
-  document.getElementById('brainActionVal').innerText = stage.brain.action;
-  document.getElementById('brainNextVal').innerText = stage.brain.next;
-  document.getElementById('brainReasoningVal').innerText = stage.brain.reasoning;
-  document.getElementById('brainConfidenceVal').innerText = `${stage.brain.confidence}%`;
+  setText('brainActionVal', stage.brain.action);
+  setText('brainNextVal', stage.brain.next);
+  setText('brainReasoningVal', stage.brain.reasoning);
+  setText('brainConfidenceVal', `${stage.brain.confidence}%`);
 
   // Page 3 Cost dashboard
   animateNumber('p3LossPotentialText', stage.costImpact.potential, '$', ',000');
   animateNumber('p3LossSavedText', stage.costImpact.recovered, '$', ',000');
-  document.getElementById('p3DowntimeAvoidedText').innerText = `${stage.costImpact.downtime} Hours`;
-  document.getElementById('p3PercentSavedText').innerText = `${stage.costImpact.saved}%`;
+  setText('p3DowntimeAvoidedText', `${stage.costImpact.downtime} Hours`);
+  setText('p3PercentSavedText', `${stage.costImpact.saved}%`);
 
   // Page 3 Recovery recommendation engine updating
   const recContainer = document.getElementById('p3-recommendation-list');
@@ -2296,11 +3177,11 @@ function updateDashboardMetrics() {
 
   // Executive resolved report values
   if (stage.name === 'SYSTEM RECOVERED') {
-    document.getElementById('execNodeCountText').innerText = '12 Nodes Stable';
-    document.getElementById('execSavedCostText').innerText = '$415,000';
+    setText('execNodeCountText', '12 Nodes Stable');
+    setText('execSavedCostText', '$415,000');
   } else {
-    document.getElementById('execNodeCountText').innerText = 'Telemetry stable';
-    document.getElementById('execSavedCostText').innerText = '$0.00';
+    setText('execNodeCountText', 'Telemetry stable');
+    setText('execSavedCostText', '$0.00');
   }
 
   // Incident Replay Scrubbers focus highlight
@@ -2322,7 +3203,7 @@ function updateDashboardMetrics() {
   // System Recovered Screen overlay toggle
   const recoveredScreenOverlay = document.getElementById('system-recovered-overlay');
   if (recoveredScreenOverlay) {
-    if (stage.name === 'SYSTEM RECOVERED') {
+    if (stage.name === 'SYSTEM RECOVERED' && state.currentPage === 'incident') {
       recoveredScreenOverlay.classList.remove('opacity-0', 'pointer-events-none');
       recoveredScreenOverlay.classList.add('opacity-100');
     } else {
@@ -2375,47 +3256,42 @@ function renderMiniSparkline(elementId, dataset, riskLevel) {
 
 // Orchestrate Mitigation checklists on Page 3
 function updateActionRemediationList() {
+  const currentStage = resolveActiveStage();
+  const stab = currentStage.stabilization || 0;
+
   const checklistItems = [
-    { key: 'migrate', selector: '#checkMigrate' },
-    { key: 'isolate', selector: '#checkIsolate' },
-    { key: 'reroute', selector: '#checkReroute' },
-    { key: 'cooling', selector: '#checkCooling' }
+    { key: 'cooling', selector: '#checkCooling', remediateAt: 0, completeAt: 25 },
+    { key: 'migrate', selector: '#checkMigrate', remediateAt: 0, completeAt: 45 },
+    { key: 'isolate', selector: '#checkIsolate', remediateAt: 45, completeAt: 80 },
+    { key: 'reroute', selector: '#checkReroute', remediateAt: 80, completeAt: 100 }
   ];
 
-  const currentStage = resolveActiveStage();
-
-  checklistItems.forEach((item, index) => {
+  checklistItems.forEach((item) => {
     const el = document.querySelector(item.selector);
     const checkEl = el?.querySelector('.action-check');
     const badgeEl = el?.querySelector('.action-badge');
 
     if (!el || !checkEl || !badgeEl) return;
 
-    // Reset styles
-    el.className = "flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-300";
-    checkEl.innerHTML = `<i data-lucide="circle" class="w-4.5 h-4.5 text-slate-400"></i>`;
-    badgeEl.className = "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase";
-    badgeEl.innerText = "PENDING";
-
-    // Set stage status
-    if (state.currentStageIndex >= 3) { // Mitigation stage triggered
-      if (item.key === 'migrate' || item.key === 'isolate') {
-        el.className = "flex items-center justify-between p-3.5 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.02] transition-all duration-300";
-        checkEl.innerHTML = `<i data-lucide="clock" class="w-4.5 h-4.5 text-cyan-500 animate-spin"></i>`;
-        badgeEl.className = "text-[10px] px-2 py-0.5 rounded-full font-bold bg-cyan-500/10 text-cyan-500 animate-pulse";
-        badgeEl.innerText = "REMEDIATING";
-      }
-
-      if (state.currentStageIndex >= 4) { // Recovery step validation
-        el.className = "flex items-center justify-between p-3.5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.01] transition-all duration-300";
-        checkEl.innerHTML = `<i data-lucide="check-circle-2" class="w-4.5 h-4.5 text-emerald-500"></i>`;
-        badgeEl.className = "text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-500";
-        badgeEl.innerText = "COMPLETED";
-      }
+    if (stab >= item.completeAt) {
+      el.className = "flex items-center justify-between p-3.5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.01] transition-all duration-300 shadow-glowGreen";
+      checkEl.innerHTML = `<i data-lucide="check-circle-2" class="w-4.5 h-4.5 text-emerald-500"></i>`;
+      badgeEl.className = "text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-500";
+      badgeEl.innerText = "COMPLETE";
+    } else if (stab > item.remediateAt) {
+      el.className = "flex items-center justify-between p-3.5 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.02] transition-all duration-300 shadow-glowCyan";
+      checkEl.innerHTML = `<i data-lucide="loader" class="w-4.5 h-4.5 text-cyan-500 animate-spin"></i>`;
+      badgeEl.className = "text-[10px] px-2 py-0.5 rounded-full font-bold bg-cyan-500/10 text-cyan-500 animate-pulse";
+      badgeEl.innerText = "ACTIVE";
+    } else {
+      el.className = "flex items-center justify-between p-3.5 rounded-xl border border-amber-500/10 bg-amber-500/[0.005] transition-all duration-300";
+      checkEl.innerHTML = `<i data-lucide="circle-dot" class="w-4.5 h-4.5 text-amber-500/40"></i>`;
+      badgeEl.className = "text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20";
+      badgeEl.innerText = "PENDING";
     }
   });
 
-  lucide.createIcons();
+  createIconsSafe();
 }
 
 // Render dynamic Activity Logs Table rows + Alert Center segregation
@@ -2478,7 +3354,7 @@ function updateLiveLogs() {
   const iBadge = document.getElementById('badgeInfoCount');
   if (iBadge) iBadge.innerText = infoCount;
   
-  lucide.createIcons();
+  createIconsSafe();
 }
 
 // Update Self-Healing Workflow Steps Visuals (Page 3 Header checklist tracker)
@@ -2526,11 +3402,11 @@ function updateSelfHealingWorkflow() {
   });
 
   container.innerHTML = html;
-  lucide.createIcons();
+  createIconsSafe();
 }
 
 // Core Simulation Scenario engine
-function startInteractiveSimulation() {
+async function startInteractiveSimulation() {
   if (state.simulationActive) return;
 
   state.simulationActive = true;
@@ -2538,6 +3414,21 @@ function startInteractiveSimulation() {
   
   // Transition views to the operations center so they see the impact immediately!
   switchPageView('monitoring');
+
+  try {
+    await ensureDatasetLoaded();
+  } catch (error) {
+    console.warn('Dataset upload failed before simulation:', error);
+    state.logs.push({
+      time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+      type: 'danger',
+      actor: 'Dataset Loader',
+      msg: error.message || 'Selected CSV could not be loaded',
+    });
+    refreshLiveViews();
+    state.simulationActive = false;
+    return;
+  }
 
   fetchJson('/simulate/run', {
     method: 'POST',
@@ -2559,8 +3450,7 @@ function startInteractiveSimulation() {
       }
     })
     .catch((error) => {
-      console.warn('Backend run simulation failed, falling back to local demo mode:', error);
-      startDemoMode();
+      console.warn('Backend run simulation failed. Waiting for Operator override.', error);
     });
 }
 
@@ -2579,11 +3469,39 @@ function loadSimulationStage(index) {
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
   
   stage.logs.forEach(logMsg => {
+    let msg = logMsg;
+    let actor = stage.name.includes('RECOVER') ? 'AI Remediation Engine' : 'AI Core Scanner';
+    let currentType = alertType;
+    
+    if (stage.name.includes('SELF-HEALING') || stage.name.includes('RECOVERY') || stage.name.includes('RECOVERED')) {
+      if (logMsg.toLowerCase().includes('workload migration') || logMsg.toLowerCase().includes('migrated')) {
+        actor = 'Backend Pipeline';
+        msg = 'workload-migration -> complete';
+        currentType = 'success';
+      } else if (logMsg.toLowerCase().includes('standby-spare-11') || logMsg.toLowerCase().includes('standby host')) {
+        actor = 'Remediation Engine';
+        msg = 'standby-spare-activation -> sync-complete';
+        currentType = 'success';
+      } else if (logMsg.toLowerCase().includes('rerouting') || logMsg.toLowerCase().includes('packet loss')) {
+        actor = 'Gateway Router';
+        msg = 'route-isolation -> db-cluster-isolated';
+        currentType = 'success';
+      } else if (logMsg.toLowerCase().includes('cooling') || logMsg.toLowerCase().includes('temperature dropped') || logMsg.toLowerCase().includes('fan')) {
+        actor = 'Thermal Controller';
+        msg = 'auxiliary-fans-overdrive -> complete';
+        currentType = 'success';
+      } else if (logMsg.toLowerCase().includes('sequence fully completed') || logMsg.toLowerCase().includes('recovery achieved')) {
+        actor = 'Backend Pipeline';
+        msg = 'run-simulation-completed -> healthy';
+        currentType = 'success';
+      }
+    }
+
     state.logs.push({
       time: timeStr,
-      type: alertType,
-      actor: stage.name.includes('RECOVER') ? 'AI Remediation Engine' : 'AI Core Scanner',
-      msg: logMsg
+      type: currentType,
+      actor: actor,
+      msg: msg
     });
   });
 

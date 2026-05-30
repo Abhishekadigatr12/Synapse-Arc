@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .actions import cleanup_temp, reduce_priority, restart_process, restart_service
+from .actions import cleanup_temp, reduce_priority, restart_process, restart_service, terminate_instance
 
 
 def execute_action(action_name: str) -> dict:
@@ -9,6 +9,7 @@ def execute_action(action_name: str) -> dict:
         'cleanup_temp': cleanup_temp,
         'restart_process': restart_process,
         'restart_service': restart_service,
+        'terminate_instance': terminate_instance,
     }
     action = action_map.get(action_name)
     if not action:

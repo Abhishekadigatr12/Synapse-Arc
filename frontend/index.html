@@ -229,9 +229,6 @@
               <button id="ctaLaunchMonitor" class="px-6 py-3.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-extrabold tracking-wider uppercase shadow-glow hover:scale-103 hover:shadow-lg transition-all duration-300">
                 Launch Mission Control
               </button>
-              <button id="ctaWatchDemo" class="px-6 py-3.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs font-extrabold tracking-wider uppercase hover:bg-slate-100 dark:hover:bg-slate-800/40 hover:-translate-y-0.5 transition-all duration-300">
-                Watch Live Demo
-              </button>
             </div>
           </div>
 
@@ -422,29 +419,28 @@
           
           <div class="flex flex-wrap lg:flex-nowrap justify-between gap-6 relative min-h-[90px] px-4">
             <div class="flex flex-col items-center flex-1 min-w-[120px] relative">
-              <div class="w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="radio" class="w-4 h-4"></i></div>
-              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">TELEMETRY INGEST</span>
-              <span class="text-[8px] text-slate-400 text-center mt-1">Edge streams synchronized</span>
+              <div class="w-8 h-8 rounded-full pipeline-step-dot bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="radio" class="w-4 h-4"></i></div>
+              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">DETECT</span>
             </div>
             <div class="flex flex-col items-center flex-1 min-w-[120px] relative">
-              <div class="w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="thermometer" class="w-4 h-4"></i></div>
-              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">ANOMALY SPOTTED</span>
-              <span class="text-[8px] text-slate-400 text-center mt-1">Thermal limits broken</span>
+              <div class="w-8 h-8 rounded-full pipeline-step-dot bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="thermometer" class="w-4 h-4"></i></div>
+              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">ANALYZE</span>
             </div>
             <div class="flex flex-col items-center flex-1 min-w-[120px] relative">
-              <div class="w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="shield-check" class="w-4 h-4"></i></div>
-              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">RISK COMPASS RUN</span>
-              <span class="text-[8px] text-slate-400 text-center mt-1">Graph cascade evaluation</span>
+              <div class="w-8 h-8 rounded-full pipeline-step-dot bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="shield-check" class="w-4 h-4"></i></div>
+              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">ISOLATE</span>
             </div>
             <div class="flex flex-col items-center flex-1 min-w-[120px] relative">
-              <div class="w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="alert-triangle" class="w-4 h-4"></i></div>
-              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">CASCADE PREDICTED</span>
-              <span class="text-[8px] text-slate-400 text-center mt-1">Path bottlenecks identified</span>
+              <div class="w-8 h-8 rounded-full pipeline-step-dot bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="alert-triangle" class="w-4 h-4"></i></div>
+              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">RECOVER</span>
             </div>
             <div class="flex flex-col items-center flex-1 min-w-[120px] relative">
-              <div class="w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="sparkles" class="w-4 h-4"></i></div>
-              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">SELF-HEALING COMPLETE</span>
-              <span class="text-[8px] text-slate-400 text-center mt-1">Workload safe isolation</span>
+              <div class="w-8 h-8 rounded-full pipeline-step-dot bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="sparkles" class="w-4 h-4"></i></div>
+              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">VALIDATE</span>
+            </div>
+            <div class="flex flex-col items-center flex-1 min-w-[120px] relative">
+              <div class="w-8 h-8 rounded-full pipeline-step-dot bg-primary/10 text-primary border border-primary/20 flex items-center justify-center z-10"><i data-lucide="check-circle" class="w-4 h-4"></i></div>
+              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-3 font-mono">COMPLETE</span>
             </div>
           </div>
         </div>
@@ -476,10 +472,7 @@
             </div>
           </div>
 
-          <button id="btnStartSimMonitor" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-extrabold tracking-wider uppercase shadow-glow hover:scale-103 hover:shadow-lg transition-all duration-300">
-            <i data-lucide="play" class="w-3.5 h-3.5"></i>
-            Run Simulation
-          </button>
+
         </div>
 
         <!-- CASCADE PATH VISUALIZATION & PREDICTION WINDOW -->
@@ -633,7 +626,24 @@
 
               <!-- SVG Canvas Map -->
               <div class="h-[430px] border border-slate-100 dark:border-slate-800/40 bg-slate-50/10 dark:bg-slate-900/20 rounded-2xl flex items-center justify-center p-4 overflow-hidden relative">
-                <div id="live-monitor-topology" class="w-full h-full flex items-center justify-center"></div>
+                <div id="live-monitor-topology" class="w-full h-full flex items-center justify-center">
+                  <svg width="100%" height="100%" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="300" y1="200" x2="150" y2="100" stroke="#00F0FF" stroke-width="2" stroke-opacity="0.5"/>
+                    <line x1="300" y1="200" x2="450" y2="100" stroke="#00F0FF" stroke-width="2" stroke-opacity="0.5"/>
+                    <line x1="300" y1="200" x2="150" y2="300" stroke="#00F0FF" stroke-width="2" stroke-opacity="0.5"/>
+                    <line x1="300" y1="200" x2="450" y2="300" stroke="#00F0FF" stroke-width="2" stroke-opacity="0.5"/>
+                    <circle cx="300" cy="200" r="30" fill="#0F172A" stroke="#00F0FF" stroke-width="3"/>
+                    <text x="300" y="245" fill="#94A3B8" font-size="12" font-family="monospace" text-anchor="middle">AI CORE</text>
+                    <circle cx="150" cy="100" r="20" fill="#0F172A" stroke="#00F0FF" stroke-width="2"/>
+                    <text x="150" y="135" fill="#94A3B8" font-size="10" font-family="monospace" text-anchor="middle">API BROKER</text>
+                    <circle id="node-db-cluster" cx="450" cy="100" r="20" fill="#0F172A" stroke="#00F0FF" stroke-width="2"/>
+                    <text x="450" y="135" fill="#94A3B8" font-size="10" font-family="monospace" text-anchor="middle">DB-CLUSTER-08</text>
+                    <circle cx="150" cy="300" r="20" fill="#0F172A" stroke="#00F0FF" stroke-width="2"/>
+                    <text x="150" y="335" fill="#94A3B8" font-size="10" font-family="monospace" text-anchor="middle">CACHE-01</text>
+                    <circle cx="450" cy="300" r="20" fill="#0F172A" stroke="#00F0FF" stroke-width="2"/>
+                    <text x="450" y="335" fill="#94A3B8" font-size="10" font-family="monospace" text-anchor="middle">QUEUE-A</text>
+                  </svg>
+                </div>
               </div>
             </div>
 
@@ -645,7 +655,7 @@
                 <div class="glass-panel p-4.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-3 relative overflow-hidden transition-all duration-300">
                   <span class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">CPU Utilization</span>
                   <div class="flex items-baseline justify-between">
-                    <span id="telCpu" data-current="45.2" class="text-2xl font-extrabold font-mono text-slate-800 dark:text-white font-mono">45.2%</span>
+                    <span id="telCpu" data-current="45.2" class="text-2xl font-extrabold font-mono text-slate-800 dark:text-white cpu-utilization-val">45.2%</span>
                     <div id="sparkline-cpu" class="w-20 h-8"></div>
                   </div>
                   <div class="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -656,7 +666,7 @@
                 <div class="glass-panel p-4.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 flex flex-col gap-3 relative overflow-hidden transition-all duration-300">
                   <span class="text-[9px] text-slate-400 dark:text-slate-500 font-extrabold tracking-widest font-mono uppercase">GPU Temperature</span>
                   <div class="flex items-baseline justify-between">
-                    <span id="telGpu" data-current="62.8" class="text-2xl font-extrabold font-mono text-slate-800 dark:text-white font-mono">62.8°C</span>
+                    <span id="telGpu" data-current="62.8" class="text-2xl font-extrabold font-mono text-slate-800 dark:text-white gpu-temp-val">62.8°C</span>
                     <div id="sparkline-gpu" class="w-20 h-8"></div>
                   </div>
                   <div class="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -884,7 +894,7 @@
 
                 <div class="flex flex-col gap-2">
                   <span class="text-[10px] text-slate-400 uppercase font-bold">Reasoning</span>
-                  <p id="mlDecisionReason" class="text-[10px] text-slate-600 dark:text-slate-300 leading-relaxed">Waiting for backend decision output.</p>
+                  <p id="mlDecisionReason" class="text-[10px] text-slate-600 dark:text-slate-300 leading-relaxed ai-root-cause-val">Waiting for backend decision output.</p>
                 </div>
 
                 <div class="flex flex-col gap-2">
@@ -971,7 +981,7 @@
                   <th class="py-3 px-4 font-mono">Log Details</th>
                 </tr>
               </thead>
-              <tbody id="log-table-rows" class="divide-y divide-slate-100 dark:divide-slate-800/40">
+              <tbody id="log-table-rows" class="divide-y divide-slate-100 dark:divide-slate-800/40 live-alert-feed-container">
                 <!-- Logs appended -->
               </tbody>
             </table>
@@ -1403,7 +1413,7 @@
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-850 pb-2 mb-3">
         <div class="flex items-center gap-2">
           <i data-lucide="sliders" class="w-4 h-4 text-primary dark:text-cyan-400"></i>
-          <span class="text-[10px] font-extrabold tracking-widest font-mono text-slate-700 dark:text-slate-300 uppercase">Demo Control Room</span>
+          <span class="text-[10px] font-extrabold tracking-widest font-mono text-slate-700 dark:text-slate-300 uppercase">Pipeline Control Room</span>
         </div>
         <div class="flex items-center gap-2">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -1426,7 +1436,7 @@
 
         <button id="floatTriggerRecovery" class="p-2.5 border border-slate-100 dark:border-slate-800 hover:border-cyan-500/50 hover:bg-cyan-500/[0.02] rounded-xl flex flex-col items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-200 transition-colors">
           <i data-lucide="sparkles" class="w-4 h-4 text-cyan-400"></i>
-          <span class="text-[9px] font-bold">3. AUTO RECOV</span>
+          <span class="text-[9px] font-bold">AUTO RECOVERY</span>
         </button>
         
         <button id="floatTriggerReset" class="p-2.5 border border-slate-100 dark:border-slate-800 hover:border-slate-400/50 hover:bg-slate-400/[0.02] rounded-xl flex flex-col items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-200 transition-colors">
@@ -1522,13 +1532,102 @@
     </div>
   </main>
 
+  <script>
+    window.lucide = window.lucide || { createIcons: function () {} };
+  </script>
   <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
-    lucide.createIcons();
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
   </script>
   
   <!-- Main Application Script -->
   <script type="module" src="app.js"></script>
+  <script>
+    (function () {
+      const pages = ['overview', 'monitoring', 'incident'];
+      const apiBase = (window.SYNAPSE_ARC_API_URL || 'http://' + window.location.hostname + ':8000').replace(/\/$/, '');
+
+      function showPage(page) {
+        if (!pages.includes(page)) page = 'overview';
+        pages.forEach(function (name) {
+          const section = document.getElementById('page-' + name);
+          const button = document.querySelector('.sidebar-nav-btn[data-page="' + name + '"]');
+          if (!section) return;
+          if (name === page) {
+            section.classList.remove('hidden-view');
+            section.removeAttribute('aria-hidden');
+          } else {
+            section.classList.add('hidden-view');
+            section.setAttribute('aria-hidden', 'true');
+          }
+          if (button) {
+            button.classList.toggle('bg-primary/10', name === page);
+            button.classList.toggle('text-primary', name === page);
+            button.classList.toggle('dark:text-white', name === page);
+            button.classList.toggle('border-l-4', name === page);
+            button.classList.toggle('border-primary', name === page);
+            button.classList.toggle('text-slate-500', name !== page);
+            button.classList.toggle('dark:text-slate-400', name !== page);
+          }
+        });
+
+        const panel = document.getElementById('demo-control-room-panel');
+        if (panel) {
+          panel.classList.toggle('hidden', page === 'overview');
+          panel.classList.toggle('pointer-events-none', page === 'overview');
+        }
+
+        const recoveryOverlay = document.getElementById('system-recovered-overlay');
+        if (recoveryOverlay && page !== 'incident') {
+          recoveryOverlay.classList.add('opacity-0', 'pointer-events-none');
+          recoveryOverlay.classList.remove('opacity-100');
+        }
+
+        if (window.location.hash !== '#' + page) {
+          history.replaceState(null, '', '#' + page);
+        }
+      }
+
+      function post(path, body) {
+        return fetch(apiBase + path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body || {})
+        }).catch(function (error) {
+          console.warn('Fallback API request failed:', path, error);
+        });
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        showPage((window.location.hash || '#overview').slice(1));
+      });
+
+      window.addEventListener('hashchange', function () {
+        showPage((window.location.hash || '#overview').slice(1));
+      });
+
+      // Navigation-only click handler. Control room button logic lives in app.js.
+      document.addEventListener('click', function (event) {
+        const nav = event.target.closest && event.target.closest('.sidebar-nav-btn[data-page]');
+        if (nav) {
+          event.preventDefault();
+          showPage(nav.getAttribute('data-page'));
+          return;
+        }
+
+        const button = event.target.closest && event.target.closest('button');
+        if (!button) return;
+
+        // Only handle page navigation for CTA button; let all other buttons propagate to app.js
+        if (button.id === 'ctaLaunchMonitor') {
+          event.preventDefault();
+          showPage('monitoring');
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
