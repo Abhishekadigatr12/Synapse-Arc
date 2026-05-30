@@ -1428,12 +1428,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (summaryEl && shap.summary) summaryEl.innerText = shap.summary;
         if (featuresEl && shap.feature_contributions && shap.feature_contributions.length) {
             featuresEl.innerHTML = shap.feature_contributions.map(fc => {
-                const pct = Math.min(100, Math.abs(fc.overflow || fc.weight || 0));
+            const pct = Math.min(100, Math.abs(fc.contribution_pct || fc.impact_pct || fc.overflow || fc.weight || 0));
                 const color = pct > 50 ? 'bg-red-500' : pct > 25 ? 'bg-amber-500' : 'bg-emerald-500';
+            const label = fc.display_name || fc.label || fc.feature || 'unknown';
+            const detail = fc.contribution_pct != null ? fc.contribution_pct.toFixed(1) + '%' : (fc.overflow != null ? '+' + fc.overflow : (fc.weight || 0));
                 return '<div class="flex flex-col gap-1">' +
                     '<div class="flex justify-between text-[9px] text-slate-400 font-mono uppercase">' +
-                    '<span>' + (fc.feature || 'unknown') + '</span>' +
-                    '<span class="font-bold">' + (fc.overflow != null ? '+' + fc.overflow : (fc.weight || 0)) + '</span>' +
+              '<span>' + label + '</span>' +
+              '<span class="font-bold">' + detail + '</span>' +
                     '</div>' +
                     '<div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">' +
                     '<div class="' + color + ' h-full rounded-full transition-all duration-500" style="width:' + pct + '%"></div>' +
@@ -1868,9 +1870,13 @@ function appendLogToFeed(severity, msg) {
     var feed = document.querySelector('.live-alert-feed-container');
     if (!feed) return;
     var row = document.createElement('tr');
-    var colorClass = severity === 'CRITICAL' ? 'text-red-500' : severity === 'WARNING' ? 'text-amber-500' : 'text-emerald-500';
+    var normalizedSeverity = String(severity || 'INFO').toUpperCase();
+    if (/telemetry generator|simulation stream started/i.test(String(msg || ''))) {
+      normalizedSeverity = 'INFO';
+    }
+    var colorClass = normalizedSeverity === 'CRITICAL' ? 'text-red-500' : normalizedSeverity === 'WARNING' ? 'text-amber-500' : normalizedSeverity === 'INFO' ? 'text-cyan-400' : 'text-emerald-500';
     row.className = 'text-[11px] font-mono';
-    row.innerHTML = '<td class="py-2.5 px-4 text-slate-400 whitespace-nowrap">' + new Date().toLocaleTimeString() + '</td><td class="py-2.5 px-4"><span class="px-2 py-0.5 rounded text-[9px] font-bold ' + colorClass + '">' + severity + '</span></td><td class="py-2.5 px-4 text-slate-300">' + msg + '</td>';
+    row.innerHTML = '<td class="py-2.5 px-4 text-slate-400 whitespace-nowrap">' + new Date().toLocaleTimeString() + '</td><td class="py-2.5 px-4"><span class="px-2 py-0.5 rounded text-[9px] font-bold ' + colorClass + '">' + normalizedSeverity + '</span></td><td class="py-2.5 px-4 text-slate-300">' + msg + '</td>';
     feed.prepend(row);
 }
 
@@ -3395,6 +3401,24 @@ function updateLiveLogs() {
   [...state.logs].reverse().forEach(log => {
     let icon = 'info';
     let bgBadge = 'bg-slate-500/10 text-slate-500';
+        const messageText = String(log.msg || '');
+
+        if (/telemetry generator|simulation stream started/i.test(messageText)) {
+          icon = 'info';
+          bgBadge = 'bg-cyan-500/10 text-cyan-400';
+          infoCount++;
+          const tr = document.createElement('tr');
+          tr.className = "border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors duration-150 animate-fade-in";
+          tr.innerHTML = `
+      <td class="py-3 px-4 font-mono text-[10px] text-slate-400 dark:text-slate-500">${log.time}</td>
+      <td class="py-3 px-4">
+        <span class="inline-flex items-center text-[9px] px-2 py-0.5 rounded-full font-bold ${bgBadge}">INFO</span>
+      </td>
+      <td class="py-3 px-4 text-[10px] text-slate-300 font-mono">${log.actor || 'Cluster'} ${messageText}</td>
+    `;
+          logTbody.appendChild(tr);
+          return;
+        }
 
     if (log.type === 'success') {
       icon = 'check-circle-2';

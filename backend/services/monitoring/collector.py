@@ -80,7 +80,7 @@ def reset_runtime_state() -> None:
 def mark_simulation_running() -> None:
     RUNTIME_STATE['running'] = True
     RUNTIME_STATE['recovered'] = False
-    record_incident_event('normal', {'message': 'Telemetry generator started'})
+    record_incident_event('info', {'message': 'Telemetry generator online', 'channel': 'simulation_start'})
 
 
 def inject_runtime_anomaly(node_id: str = 'node-08') -> None:

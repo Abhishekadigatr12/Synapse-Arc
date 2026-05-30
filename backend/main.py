@@ -17,6 +17,7 @@ os.environ.setdefault('DATABASE_URL', f'sqlite:///{DB_PATH}')
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from backend.api.routes import router as api_router
 from backend.api.health import router as health_router
@@ -39,6 +40,11 @@ app.add_middleware(
 app.include_router(api_router)
 app.include_router(health_router)
 app.include_router(websocket_router)
+
+# Serve the frontend dashboard shell from the backend so the UI and API share one origin.
+FRONTEND_DIR = ROOT / 'frontend'
+if FRONTEND_DIR.exists():
+    app.mount('/', StaticFiles(directory=str(FRONTEND_DIR), html=True), name='frontend')
 
 # Initialize database tables on startup
 @app.on_event("startup")

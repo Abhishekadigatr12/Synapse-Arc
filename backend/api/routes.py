@@ -311,6 +311,9 @@ async def get_metrics():
     disk = snapshot.get('disk', 0.0)
     network = snapshot.get('network', 0.0)
     temp = snapshot.get('temp') or 52.3
+    network_latency = round(float(snapshot.get('network_latency') or (18 + network * 1.7)), 1)
+    packet_loss = round(float(snapshot.get('packet_loss') or max(0.0, network / 55)), 2)
+    power_consumption = round(float(snapshot.get('power_consumption') or (5.0 + cpu * 0.14 + ram * 0.04)), 1)
 
     processes = snapshot.get('processes', [])
     process_load = sum(p.get('cpu', 0.0) for p in processes) / len(processes) if processes else 0.0
@@ -355,6 +358,12 @@ async def get_metrics():
         'disk': disk,
         'network': network,
         'temp': temp,
+        'cpu_usage': cpu,
+        'memory_usage': ram,
+        'gpu_temperature': temp,
+        'network_latency': network_latency,
+        'packet_loss': packet_loss,
+        'power_consumption': power_consumption,
         'disk_read': snapshot.get('disk_read'),
         'disk_write': snapshot.get('disk_write'),
         'boot_time': snapshot.get('boot_time'),
@@ -363,7 +372,17 @@ async def get_metrics():
             'cpu_utilization': cpu,
             'memory_utilization': ram,
             'gpu_temp_est': temp,
-            'network_packet_loss': network
+            'network_packet_loss': packet_loss,
+            'network_latency': network_latency,
+            'power_consumption': power_consumption,
+        },
+        'project_metrics': {
+            'cpu_usage': cpu,
+            'gpu_temperature': temp,
+            'memory_usage': ram,
+            'network_latency': network_latency,
+            'packet_loss': packet_loss,
+            'power_consumption': power_consumption,
         },
         'ml_context': {
             'workload_classification': workload_classification,
@@ -651,6 +670,16 @@ async def load_anomaly(request: Request):
 
 @router.get('/shap')
 async def get_shap():
+    feature_labels = {
+        'cpu': 'CPU Usage',
+        'memory': 'Memory Usage',
+        'disk': 'Disk Saturation',
+        'network': 'Network Latency',
+        'temp': 'GPU Temperature',
+        'packet_loss': 'Packet Loss',
+        'power_consumption': 'Power Consumption',
+    }
+
     analysis = LATEST_DEMO_STATE.get('analysis') if isinstance(LATEST_DEMO_STATE.get('analysis'), dict) else {}
     explainability = analysis.get('explainability') if isinstance(analysis, dict) else None
 
@@ -667,6 +696,23 @@ async def get_shap():
         return {'status': 'empty', 'shap': {'summary': 'No anomaly explanation available yet.', 'feature_contributions': []}}
 
     contributions = explainability.get('feature_contributions') or []
+    total_weight = sum(float(item.get('weight', 0) or 0) for item in contributions) or 1.0
+    normalized = []
+    for item in contributions:
+        feature = str(item.get('feature') or 'resource')
+        display_name = feature_labels.get(feature, feature.replace('_', ' ').title())
+        weight = float(item.get('weight', 0) or 0)
+        overflow = float(item.get('overflow', 0) or 0)
+        normalized.append(
+            {
+                **item,
+                'feature': feature,
+                'display_name': display_name,
+                'contribution_pct': round((weight / total_weight) * 100, 1) if total_weight else 0.0,
+                'impact_pct': round(min(100.0, max(0.0, overflow)), 1),
+            }
+        )
+
     top = contributions[0] if contributions else {}
     root_cause = (
         f"{str(top.get('feature', 'resource')).upper()} exceeded baseline by {top.get('overflow', 0)}"
@@ -678,8 +724,9 @@ async def get_shap():
         'shap': {
             'summary': explainability.get('summary'),
             'why_now': explainability.get('why_now'),
-            'feature_contributions': contributions,
-            'values': [{'feature': item.get('feature'), 'shap_value': item.get('overflow', 0), 'impact': item.get('weight', 0)} for item in contributions],
+            'feature_contributions': normalized,
+            'original_parameters': [item['display_name'] for item in normalized],
+            'values': [{'feature': item.get('display_name'), 'shap_value': item.get('impact_pct', 0), 'impact': item.get('contribution_pct', 0)} for item in normalized],
             'root_cause': root_cause,
             'model': explainability.get('model'),
         },
@@ -951,7 +998,7 @@ async def run_simulation(request: Request):
     }
 
     await _emit_status('simulation:started', {
-        'message': 'Telemetry generator started over WebSockets.',
+        'message': 'Telemetry generator online. CSV streaming is active.',
         'csv_path': str(SYSTEM_DATASET),
     })
     await ws_manager.broadcast({'type': 'SIMULATION_STARTED', 'payload': {'runtime': runtime_state()}})
