@@ -43,7 +43,10 @@ app.include_router(websocket_router)
 # Initialize database tables on startup
 @app.on_event("startup")
 async def on_startup():
-    init_db()
+    try:
+        init_db()
+    except Exception as exc:
+        print(f"[startup] database initialization failed; continuing with runtime telemetry fallback: {exc}", flush=True)
     
     # Automatically start collecting telemetry in the background on startup
     import asyncio

@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from backend.services.monitoring.collector import collect_snapshot, save_dataset
+from backend.services.monitoring.collector import collect_infrastructure_metrics, save_dataset
 
 NODES = int(os.getenv('NODES', '1'))
 INTERVAL = float(os.getenv('INTERVAL', '5.0'))
@@ -25,17 +25,10 @@ if not logger.handlers:
 async def run():
     async with httpx.AsyncClient(timeout=10.0) as client:
         while True:
-            snapshot = collect_snapshot()
+            snapshots = collect_infrastructure_metrics(NODES)
             payload = {
                 'source': 'telemetry-service',
-                'nodes': [
-                    {
-                        **dict(snapshot),
-                        'node': f'node-{index + 1}',
-                        'host': f"{snapshot.get('host', 'host')}-{index + 1}",
-                    }
-                    for index in range(NODES)
-                ],
+                'nodes': snapshots,
             }
             for item in payload.get('nodes', []):
                 try:

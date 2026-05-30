@@ -18,9 +18,23 @@ from ..event_bus.publisher import publish
 from ..event_bus.redis_client import get_ready_async_client
 from ..pipeline.processor import handle_metric_received
 from ..services.healing.executor import execute_action
-from ..services.monitoring.collector import collect_process_metrics, collect_system_metrics, save_dataset
+from ..services.monitoring.collector import (
+    SYSTEM_DATASET,
+    collect_infrastructure_metrics,
+    collect_process_metrics,
+    collect_system_metrics,
+    complete_runtime_recovery,
+    inject_runtime_anomaly,
+    mark_simulation_running,
+    reset_runtime_state,
+    runtime_state,
+    save_dataset,
+    start_runtime_healing,
+    trigger_runtime_cascade,
+)
 from ..services.monitoring.simulator import build_simulation_payload
 from ..services.monitoring.topology import build_topology
+from ..services.decision.policy_engine import analyze_metric
 from ..services.prediction import model_server
 from ..websocket.manager import manager as ws_manager
 
@@ -54,8 +68,8 @@ CSV_FIELD_ALIASES = {
     'cpu': ('cpu', 'cpu_utilization', 'cpu_usage', 'cpu_percent'),
     'memory': ('memory', 'mem', 'memory_usage', 'memory_percent'),
     'disk': ('disk', 'disk_usage', 'disk_percent'),
-    'network': ('network', 'network_in', 'network_out', 'net', 'packet_loss'),
-    'temp': ('temp', 'temperature', 'thermal'),
+    'network': ('network', 'network_in', 'network_out', 'net', 'packet_loss', 'network_latency'),
+    'temp': ('temp', 'temperature', 'thermal', 'gpu_temperature'),
 }
 
 
@@ -183,6 +197,10 @@ def _inject_realistic_anomaly(snapshot: dict[str, Any], failure_type: str = 'res
     mutated['disk'] = max(_number(mutated.get('disk'), 0.0), 82.0)
     mutated['network'] = max(_number(mutated.get('network'), 0.0), 84.0 if failure_type == 'service_crash' else 35.0)
     mutated['temp'] = max(_number(mutated.get('temp'), 0.0), 91.0)
+    mutated['gpu_temperature'] = mutated['temp']
+    mutated['packet_loss'] = max(_number(mutated.get('packet_loss'), 0.0), 5.8)
+    mutated['network_latency'] = max(_number(mutated.get('network_latency'), 0.0), 165.0)
+    mutated['power_consumption'] = max(_number(mutated.get('power_consumption'), 0.0), 27.5)
     mutated['failure_type'] = failure_type
     mutated['timestamp'] = datetime.now(timezone.utc).isoformat()
     mutated['processes'] = [
@@ -215,12 +233,30 @@ def _latest_recovery_action(session) -> str:
 async def _process_snapshot(snapshot: dict[str, Any], mode: str, auto_execute: bool = False) -> dict[str, Any]:
     await _emit_status(f'{mode}:started', {'host': snapshot.get('host') or snapshot.get('node')})
     save_dataset(snapshot)
-    with SessionLocal() as session:
-        result = await handle_metric_received(None, session, snapshot, auto_execute=auto_execute)
+    try:
+        with SessionLocal() as session:
+            result = await handle_metric_received(None, session, snapshot, auto_execute=auto_execute)
+    except Exception as exc:
+        analysis = analyze_metric(snapshot, [snapshot], snapshot.get('processes') if isinstance(snapshot.get('processes'), list) else [])
+        result = {
+            'analysis': analysis,
+            'summary': {'storage': 'degraded', 'error': str(exc)},
+            'decision': analysis.get('decision', {}),
+            'anomaly': analysis.get('anomaly', {}),
+            'forecast': analysis.get('forecast', {}),
+        }
+        await _emit_status('storage:fallback-analysis', {'error': str(exc)})
 
     _store_demo_state(mode, result, snapshot)
     analysis = result.get('analysis') or {}
     anomaly = analysis.get('anomaly') or result.get('anomaly') or {}
+    if auto_execute and anomaly.get('anomaly'):
+        actions = start_runtime_healing()
+        LATEST_DEMO_STATE['recovery_events'] = [
+            {'step': item['step'], 'status': 'running' if index == 0 else 'pending', 'message': item['message']}
+            for index, item in enumerate(actions)
+        ]
+        await _emit_status('recovery:auto-started', {'actions': actions})
     response_status = 'critical' if anomaly.get('anomaly') and str(anomaly.get('severity', '')).lower() == 'critical' else 'warning' if anomaly.get('anomaly') else 'healthy'
     response = {
         'status': response_status,
@@ -229,8 +265,13 @@ async def _process_snapshot(snapshot: dict[str, Any], mode: str, auto_execute: b
         **result,
         'status': response_status,
         'topology': build_topology(snapshot, count=settings.CLUSTER_NODES),
+        'runtime': runtime_state(),
     }
     await _emit_status(f'{mode}:completed', {'status': response_status, 'summary': result.get('summary', {})})
+    try:
+        await ws_manager.broadcast({'type': 'ANALYSIS_UPDATE', 'payload': response})
+    except Exception:
+        pass
     return response
 
 
@@ -351,10 +392,10 @@ async def get_live_telemetry():
             total_rows = len(df)
             if total_rows > 0:
                 latest = df.iloc[-1]
-                cpu = float(latest.get('cpu', 45.0))
-                ram = float(latest.get('memory', 62.0))
+                cpu = float(latest.get('cpu_usage', latest.get('cpu', 45.0)))
+                ram = float(latest.get('memory_usage', latest.get('memory', 62.0)))
                 disk = float(latest.get('disk', 15.0))
-                network = float(latest.get('network', 0.01))
+                network = float(latest.get('packet_loss', latest.get('network', 0.01)))
         except Exception:
             pass
 
@@ -436,8 +477,11 @@ async def get_processes():
 
 @router.get('/anomalies')
 async def get_anomalies():
-    with SessionLocal() as session:
-        rows = recent_anomalies(session, limit=20)
+    try:
+        with SessionLocal() as session:
+            rows = recent_anomalies(session, limit=20)
+    except Exception:
+        rows = []
     return {
         'anomalies': [
             {
@@ -456,8 +500,11 @@ async def get_anomalies():
 
 @router.get('/predictions')
 async def get_predictions():
-    with SessionLocal() as session:
-        predictions = recent_predictions(session, limit=20)
+    try:
+        with SessionLocal() as session:
+            predictions = recent_predictions(session, limit=20)
+    except Exception:
+        predictions = []
     return {
         'predictions': [
             {
@@ -478,38 +525,35 @@ async def get_predictions():
 async def post_metrics(request: Request):
     payload = await request.json()
     client = await get_ready_async_client(settings.REDIS_URL)
-    with SessionLocal() as session:
-        if isinstance(payload, list):
-            for item in payload:
+    items = payload if isinstance(payload, list) else payload.get('nodes') if isinstance(payload, dict) and isinstance(payload.get('nodes'), list) else [payload]
+    try:
+        with SessionLocal() as session:
+            for item in items:
                 try:
                     await publish(client, 'metric_received', json.dumps(item))
                 except Exception:
                     pass
                 await handle_metric_received(None, session, item, auto_execute=False)
-        else:
-            if isinstance(payload, dict) and isinstance(payload.get('nodes'), list):
-                for item in payload['nodes']:
-                    try:
-                        await publish(client, 'metric_received', json.dumps(item))
-                    except Exception:
-                        pass
-                    await handle_metric_received(None, session, item, auto_execute=False)
-            else:
-                try:
-                    await publish(client, 'metric_received', json.dumps(payload))
-                except Exception:
-                    pass
-                await handle_metric_received(None, session, payload, auto_execute=False)
+    except Exception as exc:
+        for item in items:
+            if isinstance(item, dict):
+                save_dataset(item)
+        await _emit_status('storage:metric-ingest-fallback', {'error': str(exc), 'items': len(items)})
     return {'status': 'ok', 'received': True}
 
 
 @router.post('/simulate/anomaly')
 async def simulate_anomaly(request: Request):
     body = await request.json()
+    node_id = str(body.get('node_id') or body.get('node') or 'node-08')
+    inject_runtime_anomaly(node_id)
     base = _current_snapshot()
     snapshot = _inject_realistic_anomaly(base, str(body.get('failure_type') or 'resource_pressure'))
+    snapshot['node_id'] = node_id
+    snapshot['host'] = node_id
+    snapshot['node'] = node_id
     snapshot.update({key: value for key, value in body.items() if value is not None})
-    snapshot['host'] = str(snapshot.get('host', snapshot.get('node', 'host-machine')))
+    snapshot['host'] = str(snapshot.get('host', snapshot.get('node', node_id)))
     snapshot['node'] = snapshot['host']
     
     from ..services.monitoring.collector import save_dataset
@@ -557,6 +601,8 @@ async def run_spark(request: Request):
     from ..services.prediction.model_server import train_model_from_csv
 
     body = await request.json()
+    node_id = str(body.get('node_id') or body.get('node') or 'node-08')
+    inject_runtime_anomaly(node_id)
 
     # Build anomaly snapshot from live system data
     def build_anomaly_snapshot():
@@ -565,6 +611,9 @@ async def run_spark(request: Request):
 
     # Run all blocking CPU-intensive work off the event loop thread
     anomaly_snap = await asyncio.to_thread(build_anomaly_snapshot)
+    anomaly_snap['node_id'] = node_id
+    anomaly_snap['host'] = node_id
+    anomaly_snap['node'] = node_id
     anomaly_snap['source'] = 'spark-engine'
     anomaly_snap['spark_processed_at'] = datetime.now(timezone.utc).isoformat()
 
@@ -606,10 +655,13 @@ async def get_shap():
     explainability = analysis.get('explainability') if isinstance(analysis, dict) else None
 
     if not explainability:
-        with SessionLocal() as session:
-            latest = session.query(AnomalyRecord).order_by(AnomalyRecord.id.desc()).first()
-            if latest and isinstance(latest.details, dict):
-                explainability = ((latest.details.get('analysis') or {}).get('explainability') or None)
+        try:
+            with SessionLocal() as session:
+                latest = session.query(AnomalyRecord).order_by(AnomalyRecord.id.desc()).first()
+                if latest and isinstance(latest.details, dict):
+                    explainability = ((latest.details.get('analysis') or {}).get('explainability') or None)
+        except Exception:
+            explainability = None
 
     if not explainability:
         return {'status': 'empty', 'shap': {'summary': 'No anomaly explanation available yet.', 'feature_contributions': []}}
@@ -638,73 +690,98 @@ async def get_shap():
 async def heal(request: Request):
     body = await request.json()
     failure_type = str(body.get('failure_type') or 'service_crash')
+    backend_actions = start_runtime_healing()
     recovery_events = [
         {'step': 'detect', 'status': 'completed', 'message': f'{failure_type} detected in active workflow'},
-        {'step': 'restart', 'status': 'running', 'message': 'Restarting affected service/task'},
-        {'step': 'validate', 'status': 'pending', 'message': 'Waiting for telemetry validation'},
+        *[
+            {'step': item['step'], 'status': 'completed', 'message': item['message']}
+            for item in backend_actions
+        ],
+        {'step': 'validate', 'status': 'completed', 'message': 'Telemetry validation complete'},
     ]
     LATEST_DEMO_STATE['recovery_events'] = recovery_events
     await _emit_status('recovery:detected', {'failure_type': failure_type, 'events': recovery_events})
-    with SessionLocal() as session:
-        action = str(body.get('action') or _latest_recovery_action(session))
-        latest_anomaly = session.query(AnomalyRecord).order_by(AnomalyRecord.id.desc()).first()
-        latest_prediction = session.query(PredictionRecord).order_by(PredictionRecord.id.desc()).first()
+    latest_anomaly = None
+    latest_prediction = None
+    try:
+        with SessionLocal() as session:
+            action = str(body.get('action') or _latest_recovery_action(session))
+            latest_anomaly = session.query(AnomalyRecord).order_by(AnomalyRecord.id.desc()).first()
+            latest_prediction = session.query(PredictionRecord).order_by(PredictionRecord.id.desc()).first()
+    except Exception:
+        action = str(body.get('action') or 'restart_service')
     result = execute_action(action)
     client = await get_ready_async_client(settings.REDIS_URL)
-    with SessionLocal() as session:
-        session.add(
-            ActionRecord(
-                action=action,
-                target='system',
-                reason=str(body.get('reason') or f'Auto recovery after simulated {failure_type}'),
-                status='completed' if result.get('success') else 'failed',
-                result=json.dumps(result),
-                details={
-                    'source': 'auto_recover',
-                    'failure_type': failure_type,
-                    'latest_anomaly': latest_anomaly.details if latest_anomaly else None,
-                    'latest_prediction': latest_prediction.details if latest_prediction else None,
-                    'result': result,
+    try:
+        with SessionLocal() as session:
+            session.add(
+                ActionRecord(
+                    action=action,
+                    target='system',
+                    reason=str(body.get('reason') or f'Auto recovery after simulated {failure_type}'),
+                    status='completed' if result.get('success') else 'failed',
+                    result=json.dumps(result),
+                    details={
+                        'source': 'auto_recover',
+                        'failure_type': failure_type,
+                        'latest_anomaly': latest_anomaly.details if latest_anomaly else None,
+                        'latest_prediction': latest_prediction.details if latest_prediction else None,
+                        'result': result,
+                    },
+                )
+            )
+            session.commit()
+
+            add_alert(
+                session,
+                {
+                    'host': 'self-healing-controller',
+                    'title': f'Auto recovery {action}',
+                    'message': f'Self-healing completed for {failure_type}',
+                    'severity': 'info' if result.get('success') else 'high',
+                    'details': {'failure_type': failure_type, 'events': recovery_events, 'result': result},
                 },
             )
-        )
-        session.commit()
-
-        add_alert(
-            session,
-            {
-                'host': 'self-healing-controller',
-                'title': f'Auto recovery {action}',
-                'message': f'Self-healing completed for {failure_type}',
-                'severity': 'info' if result.get('success') else 'high',
-                'details': {'failure_type': failure_type, 'events': recovery_events, 'result': result},
-            },
-        )
-        session.commit()
+            session.commit()
+    except Exception as exc:
+        await _emit_status('storage:recovery-log-skipped', {'error': str(exc)})
 
     recovery_events[1]['status'] = 'completed' if result.get('success') else 'failed'
-    recovery_events[2]['status'] = 'completed' if result.get('success') else 'blocked'
+    validation = complete_runtime_recovery() if result.get('success') else {'status': 'BLOCKED', 'system_health': 'DEGRADED'}
     LATEST_DEMO_STATE['mode'] = 'auto-recovery'
     LATEST_DEMO_STATE['status'] = 'recovered' if result.get('success') else 'recovery_failed'
     LATEST_DEMO_STATE['last_action'] = {'action': action, 'result': result}
     LATEST_DEMO_STATE['recovery_events'] = recovery_events
     LATEST_DEMO_STATE['updated_at'] = datetime.now(timezone.utc).isoformat()
     await publish(client, 'action_triggered', json.dumps({'action': action, 'result': result, 'source': 'auto_recover'}))
-    await _emit_status('recovery:completed', {'action': action, 'result': result, 'events': recovery_events})
-    return {'status': 'completed' if result.get('success') else 'failed', 'action': action, 'result': result, 'recovery_events': recovery_events}
+    await _emit_status('recovery:completed', {'action': action, 'result': result, 'events': recovery_events, 'validation': validation})
+    response = {
+        'status': 'completed' if result.get('success') else 'failed',
+        'action': action,
+        'result': result,
+        'recovery_events': recovery_events,
+        'validation': validation,
+        'runtime': runtime_state(),
+    }
+    await ws_manager.broadcast({'type': 'RECOVERY_UPDATE', 'payload': response})
+    return response
 
 
 @router.post('/reset')
 async def reset_cluster():
     global ACTIVE_DEMO_SCENARIO
     ACTIVE_DEMO_SCENARIO = None
-    with SessionLocal() as session:
-        session.query(ActionRecord).delete(synchronize_session=False)
-        session.query(AlertRecord).delete(synchronize_session=False)
-        session.query(AnomalyRecord).delete(synchronize_session=False)
-        session.query(PredictionRecord).delete(synchronize_session=False)
-        session.commit()
+    try:
+        with SessionLocal() as session:
+            session.query(ActionRecord).delete(synchronize_session=False)
+            session.query(AlertRecord).delete(synchronize_session=False)
+            session.query(AnomalyRecord).delete(synchronize_session=False)
+            session.query(PredictionRecord).delete(synchronize_session=False)
+            session.commit()
+    except Exception as exc:
+        await _emit_status('storage:reset-skipped', {'error': str(exc)})
     _clear_demo_state()
+    reset_runtime_state()
     LOADED_DATASET.update({'name': None, 'rows': [], 'loaded_at': None})
     await _emit_status('pipeline:reset', {'message': 'Simulation state cleared without deleting datasets'})
     return {'status': 'reset', 'message': 'Simulation state cleared without deleting datasets'}
@@ -714,11 +791,17 @@ async def reset_cluster():
 async def get_overview():
     snapshot = collect_system_metrics()
     topology = build_topology(snapshot, count=settings.CLUSTER_NODES)
-    with SessionLocal() as session:
-        alerts = recent_alerts(session, limit=6)
-        anomalies = recent_anomalies(session, limit=6)
-        predictions = recent_predictions(session, limit=3)
-        actions = recent_actions(session, limit=3)
+    try:
+        with SessionLocal() as session:
+            alerts = recent_alerts(session, limit=6)
+            anomalies = recent_anomalies(session, limit=6)
+            predictions = recent_predictions(session, limit=3)
+            actions = recent_actions(session, limit=3)
+    except Exception:
+        alerts = []
+        anomalies = []
+        predictions = []
+        actions = []
 
     health_score = _cluster_health(snapshot, len(alerts), len(anomalies))
     escalation = predictions[-1].time_to_threshold if predictions else '2 Min 18 Secs'
@@ -751,14 +834,18 @@ async def get_overview():
 async def get_demo_state():
     return {
         'state': LATEST_DEMO_STATE,
+        'runtime': runtime_state(),
         'model_path': str(model_server.default_model_path()),
     }
 
 
 @router.get('/alerts')
 async def get_alerts():
-    with SessionLocal() as session:
-        alerts = recent_alerts(session, limit=20)
+    try:
+        with SessionLocal() as session:
+            alerts = recent_alerts(session, limit=20)
+    except Exception:
+        alerts = []
     return {
         'alerts': [
             {
@@ -777,8 +864,11 @@ async def get_alerts():
 
 @router.get('/actions')
 async def get_actions():
-    with SessionLocal() as session:
-        actions = recent_actions(session, limit=20)
+    try:
+        with SessionLocal() as session:
+            actions = recent_actions(session, limit=20)
+    except Exception:
+        actions = []
     return {
         'actions': [
             {
@@ -798,8 +888,11 @@ async def get_actions():
 
 @router.get('/history')
 async def get_history():
-    with SessionLocal() as session:
-        rows = recent_system_metrics(session, limit=24)
+    try:
+        with SessionLocal() as session:
+            rows = recent_system_metrics(session, limit=24)
+    except Exception:
+        rows = []
     return {
         'history': [
             {
@@ -819,15 +912,17 @@ async def get_history():
 
 @router.get('/topology')
 async def get_topology():
-    snapshot = collect_system_metrics()
-    return build_topology(snapshot, count=settings.CLUSTER_NODES)
+    nodes = collect_infrastructure_metrics(settings.CLUSTER_NODES)
+    worst = max(nodes, key=lambda item: (item.get('cpu', 0), item.get('temp', 0), item.get('packet_loss', 0)))
+    topology = build_topology(worst, count=settings.CLUSTER_NODES)
+    topology['runtime_nodes'] = nodes
+    topology['runtime'] = runtime_state()
+    return topology
 
 
 @router.get('/nodes')
 async def get_nodes():
-    snapshot = collect_system_metrics()
-    topology = build_topology(snapshot, count=settings.CLUSTER_NODES)
-    return {'nodes': topology['nodes']}
+    return {'nodes': collect_infrastructure_metrics(settings.CLUSTER_NODES), 'runtime': runtime_state()}
 
 
 @router.get('/simulation/preview')
@@ -846,7 +941,7 @@ async def run_simulation(request: Request):
     from ..websocket.manager import manager
     import asyncio
     
-    # Start the continuous generator in the background
+    mark_simulation_running()
     await start_telemetry_loop(manager)
 
     # Initialize demo state dataset tracking
@@ -856,12 +951,68 @@ async def run_simulation(request: Request):
     }
 
     await _emit_status('simulation:started', {
-        'message': 'Telemetry generator started over WebSockets.'
+        'message': 'Telemetry generator started over WebSockets.',
+        'csv_path': str(SYSTEM_DATASET),
     })
+    await ws_manager.broadcast({'type': 'SIMULATION_STARTED', 'payload': {'runtime': runtime_state()}})
     
     return {
         'status': 'started',
-        'message': 'Background telemetry stream initialized.'
+        'message': 'Background telemetry stream initialized.',
+        'csv_schema': [
+            'timestamp',
+            'node_id',
+            'cpu_usage',
+            'gpu_temperature',
+            'memory_usage',
+            'network_latency',
+            'packet_loss',
+            'power_consumption',
+        ],
+        'runtime': runtime_state(),
+    }
+
+
+@router.post('/cascade/load')
+@router.post('/simulate/cascade')
+async def load_cascade(request: Request):
+    body = await request.json()
+    path = body.get('path') if isinstance(body.get('path'), list) else None
+    cascade_path = trigger_runtime_cascade([str(item) for item in path] if path else None)
+    nodes = collect_infrastructure_metrics(settings.CLUSTER_NODES)
+    snapshot = max(nodes, key=lambda item: (item.get('cpu', 0), item.get('temp', 0), item.get('packet_loss', 0)))
+    result = await _process_snapshot(snapshot, 'load-cascade', auto_execute=False)
+    result['cascade'] = {
+        'path': cascade_path,
+        'blast_radius': len(cascade_path),
+        'affected_nodes': cascade_path[: int(runtime_state().get('cascade_step') or 0) + 1],
+    }
+    await _emit_status('cascade:propagating', result['cascade'])
+    await ws_manager.broadcast({'type': 'CASCADE_UPDATE', 'payload': result})
+    return result
+
+
+@router.get('/incident/replay')
+async def incident_replay():
+    return {
+        'status': 'ok',
+        'events': runtime_state().get('incident_events', []),
+        'runtime': runtime_state(),
+    }
+
+
+@router.get('/recovery/validation')
+async def recovery_validation():
+    state = runtime_state()
+    verified = bool(state.get('recovered'))
+    return {
+        'status': 'VERIFIED' if verified else 'MONITORING',
+        'system_health': 'RESTORED' if verified else 'RECOVERING',
+        'temperature': 'normalized' if verified else 'checking',
+        'packet_loss': 'normalized' if verified else 'checking',
+        'traffic': 'stabilized' if verified else 'checking',
+        'risk': 'reduced' if verified else 'checking',
+        'runtime': state,
     }
 
 
@@ -874,4 +1025,3 @@ async def predict(request: Request):
         return {'status': 'ok', 'predictions': result}
     except Exception as exc:
         return {'status': 'error', 'error': str(exc)}
-

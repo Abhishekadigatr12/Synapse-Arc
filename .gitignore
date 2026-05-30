@@ -8,3 +8,6 @@ logs/
 *.csv
 *.jsonl
 *.bak
+*.db-journal
+*.db-wal
+*.db-shm

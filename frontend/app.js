@@ -223,6 +223,9 @@ let backendRefreshInterval = null;
     const memoryValue = Number.isFinite(Number(snapshot.memory)) ? Number(snapshot.memory) : baseStage.memory;
     const tempValue = Number.isFinite(Number(snapshot.temp)) ? Number(snapshot.temp) : baseStage.gpu;
     const diskValue = Number.isFinite(Number(snapshot.disk)) ? Number(snapshot.disk) : 0;
+    const packetLossValue = Number.isFinite(Number(snapshot.packet_loss)) ? Number(snapshot.packet_loss) : (anomalyCount * 0.42 + criticalCount * 1.25);
+    const latencyValue = Number.isFinite(Number(snapshot.network_latency)) ? Number(snapshot.network_latency) : (diskValue > 0 ? Math.max(12, Math.round(diskValue / 2)) : baseStage.latency);
+    const powerValue = Number.isFinite(Number(snapshot.power_consumption)) ? Number(snapshot.power_consumption) : (diskValue > 0 ? Number(Math.max(1, diskValue / 6).toFixed(1)) : baseStage.power);
     const riskScore = Math.max(0, Math.min(100, Math.round((100 - healthScore) + anomalyCount * 12 + criticalCount * 20 + warningCount * 4)));
     const explainabilityMetrics = Array.isArray(explainability?.feature_contributions) && explainability.feature_contributions.length > 0
       ? explainability.feature_contributions.slice(0, 3).map((item) => ({
@@ -310,9 +313,9 @@ let backendRefreshInterval = null;
       cpu: Number(cpuValue.toFixed(1)),
       gpu: Number(tempValue.toFixed(1)),
       memory: Number(memoryValue.toFixed(1)),
-      latency: diskValue > 0 ? Math.max(12, Math.round(diskValue / 2)) : baseStage.latency,
-      packetLoss: Number((anomalyCount * 0.42 + criticalCount * 1.25).toFixed(2)),
-      power: diskValue > 0 ? Number(Math.max(1, diskValue / 6).toFixed(1)) : baseStage.power,
+      latency: Number(latencyValue.toFixed(1)),
+      packetLoss: Number(packetLossValue.toFixed(2)),
+      power: Number(powerValue.toFixed(1)),
       riskScore,
       aiConfidence: Number(Math.max(72, 99 - anomalyCount * 3 - criticalCount * 5).toFixed(1)),
       failureWindow: stageIndex >= 2 ? '1.8 mins' : stageIndex === 1 ? '4.2 mins' : 'N/A',
@@ -519,6 +522,62 @@ let backendRefreshInterval = null;
     });
   }
 
+  function applyTelemetryEvent(message) {
+    const data = message.payload || {};
+    const nodes = Array.isArray(message.nodes) ? message.nodes : [];
+    const runtime = message.runtime || {};
+    const anomalousNodes = nodes.filter((node) => node.status === 'critical' || node.status === 'warning');
+    const criticalNodes = nodes.filter((node) => node.status === 'critical');
+    const riskScore = Math.min(100, Math.round(
+      Math.max(Number(data.cpu || 0), Number(data.memory || 0), Number(data.temp || 0), Number(data.packet_loss || 0) * 12)
+    ));
+    const health = runtime.recovered ? 99.4 : Math.max(0, Number((100 - riskScore * 0.48 - criticalNodes.length * 4).toFixed(1)));
+
+    applyBackendSnapshot({
+      overview: {
+        system_name: 'SYNAPSE-ARC',
+        latest_snapshot: data,
+        health_score: health,
+        recent_alerts: anomalousNodes.slice(0, 4).map((node, index) => ({
+          id: index + 1,
+          host: node.node_id,
+          title: `${String(node.status || 'warning').toUpperCase()} telemetry`,
+          message: `CPU ${node.cpu}% | GPU ${node.temp}C | loss ${node.packet_loss}%`,
+          severity: node.status === 'critical' ? 'critical' : 'warning',
+          details: { runtime },
+        })),
+        recent_actions: Array.isArray(runtime.incident_events)
+          ? runtime.incident_events.slice(-4).map((event, index) => ({
+            id: index + 1,
+            action: event.stage,
+            target: event.payload?.node_id || 'cluster',
+            status: runtime.recovered ? 'completed' : 'running',
+            result: event.payload?.message || event.stage,
+          }))
+          : [],
+        cluster: {
+          node_count: nodes.length || 12,
+          stable: nodes.filter((node) => node.status === 'healthy').length,
+          warning: nodes.filter((node) => node.status === 'warning' || node.status === 'recovering').length,
+          anomaly: anomalousNodes.length,
+          critical: criticalNodes.length,
+        },
+      },
+      metrics: data,
+      alerts: anomalousNodes,
+      actions: [],
+      history: state.backend.history,
+      topology: state.backend.topology,
+      demo: { ...(state.backend.demo || {}), runtime, rows_collected: message.rows_collected, csv_path: message.csv_path },
+      shap: state.backend.shap,
+    });
+
+    historyPoints.push({ x: historyPoints.length * 10, risk: state.metrics.riskScore, load: Math.round(Number(data.cpu || 0)) });
+    if (historyPoints.length > 12) historyPoints.shift();
+    historyPoints.forEach((pt, i) => { pt.x = i * 10; });
+    refreshLiveViews();
+  }
+
   async function syncBackendState() {
     if (window.SynapseCore && window.SynapseCore.isSimulationRunning) {
       return false;
@@ -568,6 +627,11 @@ let backendRefreshInterval = null;
       socket.addEventListener('open', () => {
         state.backendConnected = true;
         console.log('[WebSocket] Connected to streaming backend');
+        const boundaryScreen = document.getElementById('error-boundary-screen');
+        if (boundaryScreen) {
+          boundaryScreen.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+          boundaryScreen.classList.remove('flex', 'opacity-100');
+        }
         if (reconnectTimer) {
             clearTimeout(reconnectTimer);
             reconnectTimer = null;
@@ -581,6 +645,7 @@ let backendRefreshInterval = null;
           if (message.type === 'TELEMETRY_UPDATE') {
             const data = message.payload;
             state.liveTelemetry = data;
+            applyTelemetryEvent(message);
 
             // Target B: Live Telemetry Parameters Grid
             const insCpuBar = document.getElementById('insCpuBar');
@@ -611,6 +676,19 @@ let backendRefreshInterval = null;
               if (drRamText) drRamText.innerText = `${Math.round(data.memory)}%`;
             }
           } 
+          else if (message.type === 'ANALYSIS_UPDATE' || message.type === 'CASCADE_UPDATE' || message.type === 'RECOVERY_UPDATE') {
+            applySimulationResult(message.type.toLowerCase(), message.payload || {});
+            refreshLiveViews();
+          }
+          else if (message.type === 'SIMULATION_STARTED') {
+            state.simulationActive = true;
+            if (typeof appendLogToFeed === 'function') {
+              appendLogToFeed('SUCCESS', 'Simulation stream started. CSV telemetry is being appended by the backend.');
+            }
+          }
+          else if (message.type === 'TELEMETRY_ERROR') {
+            if (typeof appendLogToFeed === 'function') appendLogToFeed('WARNING', message.message || 'Telemetry stream error');
+          }
           else if (message.type === 'MODEL_TRAINED') {
              // Handle trained log
              const mlDecisionAction = document.getElementById('mlDecisionAction');
@@ -624,6 +702,13 @@ let backendRefreshInterval = null;
       socket.addEventListener('close', () => {
         state.backendConnected = false;
         state.backendSocket = null;
+        const boundaryScreen = document.getElementById('error-boundary-screen');
+        if (boundaryScreen) {
+          boundaryScreen.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+          boundaryScreen.classList.add('flex', 'opacity-100');
+          const text = boundaryScreen.querySelector('p');
+          if (text) text.innerText = 'Reconnecting to Infrastructure Services...';
+        }
         console.log('[WebSocket] Disconnected, attempting reconnect in 3s...');
         if (!reconnectTimer) {
             reconnectTimer = setTimeout(connectBackendStream, 3000);
@@ -1580,8 +1665,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             var simResult = await postApi('/simulate/run', {});
             if (simResult) {
-                appendLogToFeed('SUCCESS', `✔ Collected ${simResult.rows_collected || 0} rows → datasets/generated/system_metrics.csv`);
-                appendLogToFeed('SUCCESS', `✔ ML model ${simResult.ml_trained ? 'trained successfully on live data' : 'training skipped (insufficient rows)'}`);
+                appendLogToFeed('SUCCESS', `Backend telemetry generator online → CSV schema: ${simResult.csv_schema ? simResult.csv_schema.join(', ') : 'active'}`);
+                appendLogToFeed('SUCCESS', 'WebSocket stream active. Metrics, charts, counters, and nodes now update from backend events.');
                 if (simResult.snapshot) {
                     const s = simResult.snapshot;
                     safeUpdateById('insCpuText', Math.round(s.cpu || 0) + '%');
@@ -1654,7 +1739,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resetPipelineDots();
             animatePipelineSteps([0]);
 
-            var cascadeResult = await postApi('/simulate/anomaly', { failure_type: 'resource_pressure' });
+            var cascadeResult = await postApi('/cascade/load', { failure_type: 'resource_pressure' });
             if (cascadeResult) {
                 const snap2 = cascadeResult.payload || cascadeResult.snapshot || {};
                 appendLogToFeed('CRITICAL', `Cascade injected. Host: ${snap2.host || 'unknown'} | CPU: ${Math.round(snap2.cpu || 0)}% | MEM: ${Math.round(snap2.memory || 0)}%`);
@@ -1721,8 +1806,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     appendLogToFeed('SUCCESS', '✅ System fully recovered and stabilized.');
                 }, 6500);
             } else {
-                appendLogToFeed('WARNING', '⚠ Backend unreachable. Running UI-only recovery animation.');
-                runSafeHealingSequence();
+                appendLogToFeed('WARNING', 'Backend unreachable. Recovery was not run because backend events are required.');
             }
         }
 
